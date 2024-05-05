@@ -49,6 +49,7 @@ async function onFriendShip(friendship) {
  */
 async function onMessage(msg) {
   // 默认消息回复
+  console.log(msg.text())
   await defaultMessage(msg, bot, serviceType)
   // 消息分片
   // await shardingMessage(msg,bot)
@@ -136,6 +137,11 @@ const questions = [
   },
 ]
 function init() {
+  if (env.DEFAULT_AI) {
+    handleStart(env.DEFAULT_AI)
+    return
+  }
+
   inquirer
     .prompt(questions)
     .then((res) => {

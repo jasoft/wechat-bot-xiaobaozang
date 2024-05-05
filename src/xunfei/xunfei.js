@@ -57,6 +57,13 @@ export async function xunfeiSendMsg(inputVal) {
   // 创建一个Promise
   let messagePromise = new Promise((resolve, reject) => {
     // 监听websocket的各阶段事件 并做相应处理
+    let payloadText =
+      // 注意：text里面的所有content内容加一起的tokens需要控制在8192以内，开发者如有较长对话需求，需要适当裁剪历史信息
+      [
+        { role: 'system', content: env.SYSTEM_PROMPT }, //# 系统的历史问题
+      ]
+    payloadText.push(...inputVal)
+    console.log('payloadText', payloadText)
     socket.addEventListener('open', (event) => {
       // console.log('socket开启连接', event);
       // 发送消息
@@ -76,12 +83,7 @@ export async function xunfeiSendMsg(inputVal) {
           message: {
             // 如果想获取结合上下文的回答，需要开发者每次将历史问答信息一起传给服务端，如下示例
             // 注意：text里面的所有content内容加一起的tokens需要控制在8192以内，开发者如有较长对话需求，需要适当裁剪历史信息
-            text: [
-              { role: 'user', content: '你是谁' }, //# 用户的历史问题
-              { role: 'assistant', content: '你是一个专业的智能助手' }, //# AI的历史回答结果
-              // ....... 省略的历史对话
-              { role: 'user', content: inputVal }, //# 最新的一条问题，如无需上下文，可只传最新一条问题
-            ],
+            text: payloadText,
           },
         },
       }
@@ -90,6 +92,7 @@ export async function xunfeiSendMsg(inputVal) {
 
     socket.addEventListener('message', (event) => {
       let data = JSON.parse(String(event.data))
+      console.log(data)
       total_res += data.payload.choices.text[0].content
       if (data.header.code !== 0) {
         console.log('socket出错了', data.header.code, ':', data.header.message)
@@ -100,7 +103,7 @@ export async function xunfeiSendMsg(inputVal) {
       if (data.header.code === 0) {
         // 对话已经完成
         if (data.payload.choices.text && data.header.status === 2) {
-          total_res += data.payload.choices.text[0].content
+          //total_res += data.payload.choices.text[0].content
           setTimeout(() => {
             // "对话完成，手动关闭连接"
             socket.close()

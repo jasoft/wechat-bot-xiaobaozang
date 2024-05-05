@@ -15,6 +15,7 @@
   "author": "rongding",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.13.0",
     "axios": "^1.6.8",
     "chatgpt": "^2.5.2",
     "crypto-js": "^4.2.0",
@@ -28,5 +29,8 @@
     "wechaty": "^1.20.2",
     "wechaty-puppet-wechat4u": "^1.14.14",
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.13.0"
   }
 }
