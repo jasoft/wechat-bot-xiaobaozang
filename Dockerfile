@@ -1,4 +1,4 @@
-ARG APT_SOURCE="default"
+ARG APT_SOURCE="aliyun"
 
 FROM node:19 as builder-default
 ENV NPM_REGISTRY="https://registry.npmjs.org"
@@ -6,8 +6,6 @@ ENV NPM_REGISTRY="https://registry.npmjs.org"
 FROM node:19 as builder-aliyun
 
 ENV NPM_REGISTRY="https://registry.npmmirror.com"
-RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
-RUN sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
 RUN sed -i s/deb.debian.org/mirrors.aliyun.com/g /etc/apt/sources.list \
   && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
 
@@ -52,9 +50,11 @@ RUN mkdir -p /app
 WORKDIR /app
 
 COPY package.json ./
-RUN npm config set registry ${NPM_REGISTRY} && npm i
+RUN npm config set registry ${NPM_REGISTRY} && npm i 
 
 COPY *.js ./
 COPY src/ ./src/
-
+ENV DATABASE_URL="file:./dev.db"
+COPY prisma/ ./prisma/
+RUN npx prisma migrate dev 
 CMD ["npm", "run", "dev"]

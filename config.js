@@ -7,3 +7,5 @@ export const roomWhiteList = ['我的一家', '神兽大爆炸']
 
 // 联系人白名单，白名单内的联系人才会自动回复
 export const aliasWhiteList = ['妈妈', '爸爸', '姐姐', '壮壮', '奶奶']
+
+export const keywords = ['小宝藏', '下雨', '天气', '晴天', '雨天', '阴天', '雪天', '雾天', '台风', '暴雨', '大风', '大雾', '大雪', '大雨']
