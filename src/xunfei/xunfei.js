@@ -92,7 +92,6 @@ export async function xunfeiSendMsg(inputVal) {
 
     socket.addEventListener('message', (event) => {
       let data = JSON.parse(String(event.data))
-      console.log(data)
       total_res += data.payload.choices.text[0].content
       if (data.header.code !== 0) {
         console.log('socket出错了', data.header.code, ':', data.header.message)
