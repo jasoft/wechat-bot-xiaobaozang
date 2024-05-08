@@ -1,4 +1,4 @@
-import { botName, roomWhiteList, aliasWhiteList } from '../../config.js'
+import { botName, roomWhiteList, aliasWhiteList, keywords } from '../../config.js'
 import { getServe } from './serve.js'
 import { PrismaClient } from '@prisma/client'
 
