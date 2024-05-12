@@ -1,4 +1,4 @@
-import { botName, roomWhiteList, aliasWhiteList, keywords } from '../../config.js'
+import { botName, roomWhiteList, aliasWhiteList, keywords, contextLimit } from '../../config.js'
 import { getServe } from './serve.js'
 import { PrismaClient } from '@prisma/client'
 
@@ -59,7 +59,7 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
         where: {
           topicId: room.id,
         },
-        take: 50,
+        take: contextLimit,
         orderBy: {
           createdAt: 'asc',
         },
@@ -88,7 +88,7 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
         where: {
           topicId: topicId,
         },
-        take: 50,
+        take: contextLimit,
         orderBy: {
           createdAt: 'asc',
         },
