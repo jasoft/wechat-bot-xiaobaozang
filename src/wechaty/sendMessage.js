@@ -4,11 +4,12 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-function buildPrompt(context, question) {
-  const contexts = context.map((message) => {
-    return { role: message.role, content: message.content }
-  })
-
+async function buildPrompt(context, question) {
+  const contexts = context
+    .map((message) => {
+      return { role: message.role, content: `我是${message.alias},${message.content}` }
+    })
+    .reverse()
   return contexts
 }
 
@@ -23,98 +24,107 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
   const getReply = getServe(ServiceType)
   const contact = msg.talker() // 发消息人
   const receiver = msg.to() // 消息接收人
-  const content = msg.text() // 消息内容
   const room = msg.room() // 是否是群消息
   const roomName = (await room?.topic()) || null // 群名称
   const alias = (await contact.alias()) || (await contact.name()) // 发消息人昵称
   const remarkName = await contact.alias() // 备注名称
   const name = await contact.name() // 微信名称
   const isText = msg.type() === bot.Message.Type.Text // 消息类型是否为文本
+  const isImage = msg.type() === bot.Message.Type.Image // 消息类型是否为图片
+  const content = msg.text() ? msg.text() : isImage ? '[图片消息]' : '[其他消息]'
   const isRoom = roomWhiteList.includes(roomName) && (content.includes(`${botName}`) || keywords.some((keyword) => content.includes(keyword))) // 是否在群聊白名单内并且艾特了机器人或聊天触发了关键字
   const isAlias = aliasWhiteList.includes(remarkName) || aliasWhiteList.includes(name) // 发消息的人是否在联系人白名单内
-  const isBotSelf = botName === remarkName || botName === name // 是否是机器人自己
+  const cleanedBotName = botName.replace('@', '')
+  const isBotSelf = cleanedBotName === remarkName || cleanedBotName === name
   const topicId = room ? room.id : contact.id // 发消息人id或群id
 
   // TODO 你们可以根据自己的需求修改这里的逻辑
-  if (isBotSelf || !isText) return // 如果是机器人自己发送的消息或者消息类型不是文本则不处理
+  const data = {
+    msg: msg,
+    alias: alias,
+    name: name,
+    content: content,
+    msgtype: msg.type(),
+    remarkName: remarkName,
+    isRoom: isRoom,
+    isAlias: isAlias,
+    isBotSelf: isBotSelf,
+    isText: isText,
+    isImage: isImage,
+    roomName: roomName,
+    topicId: topicId,
+  }
+  console.log('message data', data)
+
+  if (isBotSelf) return // 如果是机器人自己发送的消息或者消息类型不是文本则不处理
+
   // 保存消息
-  await prisma.message.create({
-    data: {
-      content: content,
-      topicId: topicId,
-      roomName: roomName,
-      name: name,
-      alias: alias,
-      role: 'user',
-      isRoom: isRoom,
-    },
-  })
+  await persistMessage('user', name, alias)
 
   try {
     // 区分群聊和私聊
+
     if (isRoom && room) {
-      console.log(room)
       const question = (await msg.mentionText()) || content.replace(`${botName}`, '') // 去掉艾特的消息主体
-      const messages = await prisma.message.findMany({
-        where: {
-          topicId: room.id,
-        },
-        take: contextLimit,
-        orderBy: {
-          createdAt: 'asc',
-        },
-      })
-      const prompt = buildPrompt(messages, question)
-      console.log('🌸🌸🌸 / question: ', prompt)
-      const response = await getReply(prompt)
-      // 保存bot发的消息
-      await prisma.message.create({
-        data: {
-          content: response,
-          topicId: topicId,
-          roomName: roomName,
-          name: botName,
-          alias: botName,
-          role: 'assistant',
-          isRoom: isRoom,
-        },
-      })
-      await room.say(response)
+      await handleChat(true, room.id, question)
     }
+
     // 私人聊天，白名单内的直接发送
     if (isAlias && !room) {
-      // 获取对话历史
-      const messages = await prisma.message.findMany({
-        where: {
-          topicId: topicId,
-        },
-        take: contextLimit,
-        orderBy: {
-          createdAt: 'asc',
-        },
-      })
-      const question = buildPrompt(messages, content)
-
-      console.log('🌸🌸🌸 / content: ', question)
-      const response = await getReply(question)
-      // 保存bot发的消息
-      await prisma.message.create({
-        data: {
-          content: response,
-          topicId: topicId,
-          name: botName,
-          roomName: roomName,
-          alias: botName,
-          role: 'assistant',
-          isRoom: isRoom,
-        },
-      })
-      await contact.say(response)
+      await handleChat(false, contact.id, content)
     }
   } catch (e) {
     console.error(e)
   } finally {
     await prisma.$disconnect()
+  }
+
+  // 处理群聊和私聊
+  async function handleChat(isRoom, chatId, questionContent) {
+    let messages = []
+    //await getHistoryMessages(chatId, contextLimit)
+    let response = ''
+    if (isImage) {
+      const fileBox = await msg.toFileBox()
+      const fileName = `./assets/${fileBox.name}`
+      await fileBox.toFile(fileName)
+      messages.push({ role: 'user', alias: alias, content: `[图片消息]{${fileName}}` })
+    } else if (isText) {
+      messages = await getHistoryMessages(chatId, contextLimit)
+    }
+    const question = await buildPrompt(messages, questionContent)
+    response = await getReply(question)
+
+    // 保存bot发的消息
+    await persistMessage('assistant', botName, botName)
+    await contact.say(response)
+    console.log(isRoom ? 'room response' : 'contact response', response)
+  }
+
+  async function persistMessage(role, name, alias) {
+    await prisma.message.create({
+      data: {
+        content: content,
+        topicId: topicId,
+        roomName: roomName,
+        name: name,
+        alias: alias,
+        role: role,
+        isRoom: isRoom,
+      },
+    })
+  }
+
+  async function getHistoryMessages(id, nums) {
+    return await prisma.message.findMany({
+      where: {
+        topicId: id,
+      },
+      take: nums,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
   }
 }
 

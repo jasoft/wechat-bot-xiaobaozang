@@ -1,6 +1,10 @@
 import CryptoJS from 'crypto-js'
 import dotenv from 'dotenv'
 import WebSocket from 'ws'
+import { tokensLimit } from '../../config.js'
+import { imageUnderstanding } from './imageunderstanding.js'
+import path from 'path'
+import process from 'process'
 
 const env = dotenv.config().parsed // 环境参数
 // APPID，APISecret，APIKey在https://console.xfyun.cn/services/cbm这里获取
@@ -55,14 +59,22 @@ export async function xunfeiSendMsg(inputVal) {
   let total_res = '' // 请空回答历史
 
   // 创建一个Promise
-  let messagePromise = new Promise((resolve, reject) => {
+  let messagePromise = new Promise(async (resolve, reject) => {
     // 监听websocket的各阶段事件 并做相应处理
     let payloadText =
       // 注意：text里面的所有content内容加一起的tokens需要控制在8192以内，开发者如有较长对话需求，需要适当裁剪历史信息
-      [
-        { role: 'system', content: env.SYSTEM_PROMPT }, //# 系统的历史问题
-      ]
+      [{ role: 'system', content: env.SYSTEM_PROMPT }]
+    console.log(inputVal)
     payloadText.push(...inputVal)
+    const lastUserMessage = payloadText[payloadText.length - 1]
+    // 如果最后一条消息是图片消息，调用图片理解接口
+    if (lastUserMessage.content.includes('[图片消息]')) {
+      console.log('发现图片消息')
+      const imagePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
+      console.log(process.cwd())
+      const imageResponse = await imageUnderstanding(imagePath, '详细描述这张图片的内容')
+      resolve(imageResponse)
+    }
     console.log('payloadText', payloadText)
     socket.addEventListener('open', (event) => {
       // console.log('socket开启连接', event);
@@ -76,7 +88,7 @@ export async function xunfeiSendMsg(inputVal) {
           chat: {
             domain: modelDomain,
             temperature: 0.8,
-            max_tokens: 1024,
+            max_tokens: tokensLimit,
           },
         },
         payload: {

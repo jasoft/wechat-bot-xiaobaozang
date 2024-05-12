@@ -83,6 +83,7 @@ bot.on('error', (e) => {
   console.error('bot error❌: ', e)
   console.log('❌ 程序退出,请重新运行程序')
   bot.stop()
+  bark(e)
 
   // 如果 WechatEveryDay.memory-card.json 文件存在，删除
   if (fs.existsSync('WechatEveryDay.memory-card.json')) {
@@ -90,12 +91,28 @@ bot.on('error', (e) => {
   }
   process.exit()
 })
+
+function bark(e) {
+  const barkUrl = env.BARK_URL
+  const message = 'An error occurred in the Wechat bot, please check it out. ' + e.toString()
+  fetch(`${barkUrl}/${message}`)
+    .then(() => {
+      console.log('Notification sent successfully')
+    })
+    .catch((err) => {
+      console.error('Failed to send notification:', err)
+    })
+}
+
 // 启动微信机器人
 function botStart() {
   bot
     .start()
     .then(() => console.log('Start to log in wechat...'))
-    .catch((e) => console.error('botStart error❌: ', e))
+    .catch((e) => {
+      console.error('botStart error❌: ', e)
+      // Notify by Bark
+    })
 }
 
 // 控制启动
