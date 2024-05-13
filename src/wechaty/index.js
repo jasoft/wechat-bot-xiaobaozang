@@ -81,8 +81,8 @@ bot.on('friendship', onFriendShip)
 bot.on('error', (e) => {
   console.error('bot error❌: ', e)
   console.log('❌ 程序退出,请重新运行程序')
-  bark('An error occurred in the Wechat bot, please check it out.' + e.toString())
-  //bot.stop()
+  //bark('An error occurred in the Wechat bot, please check it out.' + e.toString())
+  bot.stop()
 
   // 如果 WechatEveryDay.memory-card.json 文件存在，删除
   // if (fs.existsSync('WechatEveryDay.memory-card.json')) {

@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-async function buildPrompt(context, question) {
+async function buildPrompt(context) {
   const contexts = context
     .map((message) => {
       return { role: message.role, content: `我是${message.alias},${message.content}` }
@@ -81,11 +81,9 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
 
   // 处理群聊和私聊
   async function handleChat(isRoom, chatId, questionContent) {
-    let response = ''
-
     const buildMessages = async () => {
       // 如果是图片或者语音消息，保存文件
-      let convertedMessage = content
+      let convertedMessage = questionContent
       if (isImage || isVoice) {
         const fileBox = await msg.toFileBox()
         console.log('fileBox', fileBox)
@@ -95,24 +93,31 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
 
         convertedMessage = isImage ? `[图片消息]{${fileName}}` : `[语音消息]{${fileName}}`
       }
-
+      // 保存用户发的消息
       await persistMessage('user', convertedMessage, name, alias)
-      // 如果是文本消息，获取历史消息
+      let chatHistory = await getHistoryMessages(chatId, contextLimit)
 
-      if (isText || isVoice) {
-        return await getHistoryMessages(chatId, contextLimit)
-      } else if (isImage) {
-        return [{ role: 'user', alias: alias, content: convertedMessage }]
-      } else {
-        return []
+      switch (msg.type()) {
+        case bot.Message.Type.Image:
+          chatHistory = [{ role: 'user', alias: alias, content: convertedMessage }]
+          break
+        case bot.Message.Type.Audio:
+          chatHistory.push({ role: 'user', alias: alias, content: convertedMessage })
+          break
+        default:
+          break
       }
+      return chatHistory
+      // 如果是文本消息，获取历史消息
     }
+    let response = ''
     const messages = await buildMessages()
     //无法处理的消息返回,不回应
     if (messages.length == 0) {
       return
     }
-    const question = await buildPrompt(messages, questionContent)
+    // question like [{role: 'user', content: '你好吗'},{role: 'assistant', content: '我很好'}]
+    const question = await buildPrompt(messages)
     response = await getReply(question)
     console.log('response', response)
 

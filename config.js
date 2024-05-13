@@ -12,4 +12,4 @@ export const keywords = ['小宝藏', '吃饭', '下雨', '天气', '晴天', '�
 
 export const contextLimit = 10 // 上下文对话的长度
 
-export const tokensLimit = 140 // 消息长度限制
+export const tokensLimit = 2048 // 消息长度限制

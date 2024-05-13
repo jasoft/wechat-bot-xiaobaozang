@@ -83,12 +83,8 @@ export async function xunfeiSendMsg(inputVal) {
       console.log(`Silk文件已成功转换为PCM格式: ${pcmFilePath}`)
     })
 
-    return await recognizeAudio(pcmFilePath)
+    return recognizeAudio(pcmFilePath)
   }
-
-  let myUrl = await authenticate()
-  let socket = new WebSocket(String(myUrl))
-  let total_res = '' // 请空回答历史
 
   // 创建一个Promise
   let messagePromise = new Promise(async (resolve, reject) => {
@@ -97,6 +93,7 @@ export async function xunfeiSendMsg(inputVal) {
       // 注意：text里面的所有content内容加一起的tokens需要控制在8192以内，开发者如有较长对话需求，需要适当裁剪历史信息
       [{ role: 'system', content: env.SYSTEM_PROMPT }]
     payloadText.push(...inputVal)
+    console.log('payloadText-beforeprocess', payloadText)
     const lastUserMessage = payloadText[payloadText.length - 1]
     // Extracted method to handle image messages
 
@@ -113,9 +110,18 @@ export async function xunfeiSendMsg(inputVal) {
     }
 
     //payloadText 构造完成,开始发送
+
     console.log('payloadText', payloadText)
+
+    // 这几句放在函数外面就会导致发语音的时候莫名卡死, 放在这里就是正常的
+    // 怀疑跟 socket 的生命周期有关
+    // 咨询了 ai, 是因为 websocket 是异步的, 执行了之后再运行耗时较长的代码,这时候已经打开了,导致 open event 无法触发
+    let myUrl = await authenticate()
+    let total_res = '' // 请空回答历史
+    let socket = new WebSocket(String(myUrl))
+
     socket.addEventListener('open', (event) => {
-      // console.log('socket开启连接', event);
+      console.log('socket开启连接')
       // 发送消息
       let params = {
         header: {
@@ -143,6 +149,7 @@ export async function xunfeiSendMsg(inputVal) {
     socket.addEventListener('message', (event) => {
       let data = JSON.parse(String(event.data))
       total_res += data.payload?.choices?.text?.[0]?.content ?? ''
+      console.log(data.payload?.choices?.text?.[0]?.content ?? '')
       if (data.header.code !== 0) {
         console.log('socket出错了', data.header.code, ':', data.header.message)
         // 出错了"手动关闭连接"
