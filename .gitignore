@@ -6,5 +6,5 @@ package-lock.json
 yarn.lock
 Chromium.app
 config.js
+assets/**/*
 prisma/dev.db
-assets/*.jpg

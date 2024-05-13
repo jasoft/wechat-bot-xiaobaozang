@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import dotenv from 'dotenv'
 import base64 from 'base64-js'
+import sharp from 'sharp'
 
 const env = dotenv.config().parsed // 环境
 const appid = env.XUNFEI_APP_ID
@@ -98,8 +99,34 @@ const getText = (role, content) => {
 }
 
 export async function imageUnderstanding(imagePath, question) {
-  const imageData = fs.readFileSync(imagePath)
-  const text = [{ role: 'user', content: base64.fromByteArray(imageData), content_type: 'image' }]
+  // ...
+  const getImageData = async (imagePath, maxSize) => {
+    const image = sharp(imagePath)
+    const metadata = await image.metadata()
+    const stats = fs.statSync(imagePath)
+    const currentSize = stats.size
+
+    console.log('metadata', metadata, 'size', currentSize)
+
+    if (currentSize > maxSize) {
+      console.log('Image too large, resize it.')
+      const resizedImage = await image.resize({ size: maxSize }).toBuffer()
+      return resizedImage
+    } else {
+      return fs.readFileSync(imagePath)
+    }
+  }
+
+  // ...
+  const maxSize = 700 * 1024 // 700 KB
+
+  const resizedImage = await getImageData(imagePath, maxSize)
+
+  // Convert the resized image buffer to base64
+  const resizedImageBase64 = resizedImage.toString('base64')
+  console.log('resizedSize', resizedImageBase64.length)
+
+  const text = [{ role: 'user', content: resizedImageBase64, content_type: 'image' }]
   let result = ''
   text.push({ role: 'user', content: question })
 
@@ -114,7 +141,7 @@ export async function imageUnderstanding(imagePath, question) {
       const data = JSON.parse(message)
       const code = data.header.code
       if (code !== 0) {
-        reject(`请求错误: ${code}, ${data}`)
+        reject(`请求错误: ${code}, ${data.header.message}`)
         ws.close()
       } else {
         const choices = data.payload.choices

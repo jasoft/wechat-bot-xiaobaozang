@@ -31,8 +31,10 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
   const name = await contact.name() // 微信名称
   const isText = msg.type() === bot.Message.Type.Text // 消息类型是否为文本
   const isImage = msg.type() === bot.Message.Type.Image // 消息类型是否为图片
+  const isVoice = msg.type() === bot.Message.Type.Audio // 消息类型是否为语音
   const content = msg.text() ? msg.text() : isImage ? '[图片消息]' : '[其他消息]'
-  const isRoom = roomWhiteList.includes(roomName) && (content.includes(`${botName}`) || keywords.some((keyword) => content.includes(keyword))) // 是否在群聊白名单内并且艾特了机器人或聊天触发了关键字
+  const isRoom =
+    roomWhiteList.includes(roomName) && (content.includes(`${botName}`) || isImage || keywords.some((keyword) => content.includes(keyword))) // 是否在群聊白名单内并且艾特了机器人或聊天触发了关键字
   const isAlias = aliasWhiteList.includes(remarkName) || aliasWhiteList.includes(name) // 发消息的人是否在联系人白名单内
   const cleanedBotName = botName.replace('@', '')
   const isBotSelf = cleanedBotName === remarkName || cleanedBotName === name
@@ -51,15 +53,13 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
     isBotSelf: isBotSelf,
     isText: isText,
     isImage: isImage,
+    isVoice: isVoice,
     roomName: roomName,
     topicId: topicId,
   }
   console.log('message data', data)
 
   if (isBotSelf) return // 如果是机器人自己发送的消息或者消息类型不是文本则不处理
-
-  // 保存消息
-  await persistMessage('user', name, alias)
 
   try {
     // 区分群聊和私聊
@@ -81,27 +81,54 @@ export async function defaultMessage(msg, bot, ServiceType = 'GPT') {
 
   // 处理群聊和私聊
   async function handleChat(isRoom, chatId, questionContent) {
-    let messages = []
-    //await getHistoryMessages(chatId, contextLimit)
     let response = ''
-    if (isImage) {
-      const fileBox = await msg.toFileBox()
-      const fileName = `./assets/${fileBox.name}`
-      await fileBox.toFile(fileName)
-      messages.push({ role: 'user', alias: alias, content: `[图片消息]{${fileName}}` })
-    } else if (isText) {
-      messages = await getHistoryMessages(chatId, contextLimit)
+
+    const buildMessages = async () => {
+      // 如果是图片或者语音消息，保存文件
+      let convertedMessage = content
+      if (isImage || isVoice) {
+        const fileBox = await msg.toFileBox()
+        console.log('fileBox', fileBox)
+        const fileName = `./assets/${fileBox.name}`
+        console.log('saving file to', fileName)
+        await fileBox.toFile(fileName, true)
+
+        convertedMessage = isImage ? `[图片消息]{${fileName}}` : `[语音消息]{${fileName}}`
+      }
+
+      await persistMessage('user', convertedMessage, name, alias)
+      // 如果是文本消息，获取历史消息
+
+      if (isText || isVoice) {
+        return await getHistoryMessages(chatId, contextLimit)
+      } else if (isImage) {
+        return [{ role: 'user', alias: alias, content: convertedMessage }]
+      } else {
+        return []
+      }
+    }
+    const messages = await buildMessages()
+    //无法处理的消息返回,不回应
+    if (messages.length == 0) {
+      return
     }
     const question = await buildPrompt(messages, questionContent)
     response = await getReply(question)
+    console.log('response', response)
 
     // 保存bot发的消息
-    await persistMessage('assistant', botName, botName)
-    await contact.say(response)
+    await persistMessage('assistant', response.toString(), botName, botName)
+    if (isRoom) {
+      await room.say(response)
+    } else {
+      await contact.say(response)
+    }
+
     console.log(isRoom ? 'room response' : 'contact response', response)
   }
 
-  async function persistMessage(role, name, alias) {
+  async function persistMessage(role, content, name, alias) {
+    console.log('persisting message', role, content, name, alias)
     await prisma.message.create({
       data: {
         content: content,

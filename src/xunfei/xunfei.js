@@ -5,6 +5,9 @@ import { tokensLimit } from '../../config.js'
 import { imageUnderstanding } from './imageunderstanding.js'
 import path from 'path'
 import process from 'process'
+import { FileBox } from 'file-box'
+import { exec, execSync } from 'child_process'
+import { recognizeAudio } from './voicerecog.js'
 
 const env = dotenv.config().parsed // 环境参数
 // APPID，APISecret，APIKey在https://console.xfyun.cn/services/cbm这里获取
@@ -54,6 +57,35 @@ function authenticate() {
 
 export async function xunfeiSendMsg(inputVal) {
   // 获取请求地址
+  async function handleImageMessage(lastUserMessage) {
+    console.log('发现图片消息', lastUserMessage)
+    const imagePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
+    //console.log(imagePath)
+    const imageResponse = await imageUnderstanding(imagePath, env.IMAGE_UNDERSTANDING_PROMPT)
+    return imageResponse
+  }
+
+  async function handleVoiceMessage(lastUserMessage) {
+    console.log('发现语音消息', lastUserMessage)
+
+    const voicePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
+
+    const pcmFilePath = voicePath.replace('.sil', '.pcm')
+
+    const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath}`
+
+    execSync(ffmpegCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`执行ffmpeg命令失败: ${error}`)
+        return
+      }
+
+      console.log(`Silk文件已成功转换为PCM格式: ${pcmFilePath}`)
+    })
+
+    return await recognizeAudio(pcmFilePath)
+  }
+
   let myUrl = await authenticate()
   let socket = new WebSocket(String(myUrl))
   let total_res = '' // 请空回答历史
@@ -64,17 +96,23 @@ export async function xunfeiSendMsg(inputVal) {
     let payloadText =
       // 注意：text里面的所有content内容加一起的tokens需要控制在8192以内，开发者如有较长对话需求，需要适当裁剪历史信息
       [{ role: 'system', content: env.SYSTEM_PROMPT }]
-    console.log(inputVal)
     payloadText.push(...inputVal)
     const lastUserMessage = payloadText[payloadText.length - 1]
-    // 如果最后一条消息是图片消息，调用图片理解接口
+    // Extracted method to handle image messages
+
+    // If the last message is an image message, call the image understanding API
     if (lastUserMessage.content.includes('[图片消息]')) {
-      console.log('发现图片消息')
-      const imagePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
-      console.log(process.cwd())
-      const imageResponse = await imageUnderstanding(imagePath, '详细描述这张图片的内容')
-      resolve(imageResponse)
+      // 如果是图片直接返回识别结果,不参与对话
+      resolve(handleImageMessage(lastUserMessage))
     }
+    // 如果最后一条消息是语音消息，调用语音理解接口
+    if (lastUserMessage.content.includes('[语音消息]')) {
+      // 替换最后一条消息为语音识别结果
+      payloadText.pop()
+      payloadText.push({ role: 'user', content: await handleVoiceMessage(lastUserMessage) })
+    }
+
+    //payloadText 构造完成,开始发送
     console.log('payloadText', payloadText)
     socket.addEventListener('open', (event) => {
       // console.log('socket开启连接', event);

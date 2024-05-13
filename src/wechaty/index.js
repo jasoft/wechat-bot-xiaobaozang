@@ -4,7 +4,6 @@ import qrTerminal from 'qrcode-terminal'
 import { defaultMessage, shardingMessage } from './sendMessage.js'
 import dotenv from 'dotenv'
 const env = dotenv.config().parsed // 环境参数
-import fs from 'fs'
 
 // 扫码
 function onScan(qrcode, status) {
@@ -82,19 +81,18 @@ bot.on('friendship', onFriendShip)
 bot.on('error', (e) => {
   console.error('bot error❌: ', e)
   console.log('❌ 程序退出,请重新运行程序')
-  bot.stop()
-  bark(e)
+  bark('An error occurred in the Wechat bot, please check it out.' + e.toString())
+  //bot.stop()
 
   // 如果 WechatEveryDay.memory-card.json 文件存在，删除
-  if (fs.existsSync('WechatEveryDay.memory-card.json')) {
-    fs.unlinkSync('WechatEveryDay.memory-card.json')
-  }
-  process.exit()
+  // if (fs.existsSync('WechatEveryDay.memory-card.json')) {
+  //   fs.unlinkSync('WechatEveryDay.memory-card.json')
+  // }
+  //process.exit()
 })
 
-function bark(e) {
+function bark(message) {
   const barkUrl = env.BARK_URL
-  const message = 'An error occurred in the Wechat bot, please check it out. ' + e.toString()
   fetch(`${barkUrl}/${message}`)
     .then(() => {
       console.log('Notification sent successfully')
@@ -108,7 +106,9 @@ function bark(e) {
 function botStart() {
   bot
     .start()
-    .then(() => console.log('Start to log in wechat...'))
+    .then(() => {
+      console.log('Start to log in wechat...')
+    })
     .catch((e) => {
       console.error('botStart error❌: ', e)
       // Notify by Bark
