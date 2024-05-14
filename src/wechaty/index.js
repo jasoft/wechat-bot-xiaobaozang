@@ -1,7 +1,7 @@
 import { WechatyBuilder, ScanStatus, log } from 'wechaty'
 import inquirer from 'inquirer'
 import qrTerminal from 'qrcode-terminal'
-import { defaultMessage, shardingMessage } from './sendMessage.js'
+import { defaultMessage } from './sendMessage.js'
 import dotenv from 'dotenv'
 const env = dotenv.config().parsed // 环境参数
 
@@ -28,6 +28,7 @@ function onLogin(user) {
 // 登出
 function onLogout(user) {
   console.log(`${user} has logged out`)
+  bark('Wechat bot has logged out')
 }
 
 // 收到好友请求

@@ -10,6 +10,6 @@ export const aliasWhiteList = ['妈妈', '爸爸', '姐姐', '壮壮', '奶奶']
 
 export const keywords = ['小宝藏', '吃饭', '下雨', '天气', '晴天', '雨天', '阴天', '雪天', '雾天', '台风', '暴雨', '大风', '大雾', '大雪', '大雨']
 
-export const contextLimit = 10 // 上下文对话的长度
+export const contextLimit = 5 // 上下文对话的长度
 
-export const tokensLimit = 2048 // 消息长度限制
+export const tokensLimit = 512 // 消息长度限制
