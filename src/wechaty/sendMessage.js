@@ -66,7 +66,8 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	if (isBotSelf) return // 如果是机器人自己发送的消息或者消息类型不是文本则不处理
 
 	// 保存用户发的消息, 保存消息的时候会根据消息类型保存不同的内容
-	await persistMessage("user", await normalizeMessage(content), name, alias)
+	const normalizedMessage = await normalizeMessage(content)
+	await persistMessage("user", normalizedMessage, name, alias)
 
 	try {
 		// 区分群聊和私聊
@@ -77,7 +78,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 			const triggedByKeywords = historyMessages.some((message) => {
 				const triggeredKeyword = keywords.find((keyword) => message.content.includes(keyword))
 				if (triggeredKeyword) {
-					logger.info("", "Triggered keyword:", triggeredKeyword)
+					logger.info("Triggered keyword:", triggeredKeyword)
 					return true
 				}
 				return false
@@ -85,16 +86,16 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 
 			//historyMessages 是按照时间倒序排列的，所以取第二条
 			const lastMessageIsBot = historyMessages.length > 1 ? historyMessages[1].role == "assistant" : false
-			logger.info("", "Last message is bot:", lastMessageIsBot)
+			logger.info("Last message is bot:", lastMessageIsBot)
 			if (triggedByKeywords || isImage || isVoice || lastMessageIsBot) {
-				const question = (await msg.mentionText()) || content.replace(`${botName}`, "") // 去掉艾特的消息主体
-				await handleChat(true, room.id, question)
+				//const question = (await msg.mentionText()) || content.replace(`${botName}`, "") // 去掉艾特的消息主体
+				await handleChat(true, room.id)
 			}
 		}
 
 		// 私人聊天，白名单内的直接发送
 		if (isAlias && !room) {
-			await handleChat(false, contact.id, content)
+			await handleChat(false, contact.id)
 		}
 	} catch (e) {
 		console.error(e)
@@ -103,7 +104,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	}
 
 	// 处理群聊和私聊
-	async function handleChat(isRoom, chatId, questionContent) {
+	async function handleChat(isRoom, chatId) {
 		const buildMessages = async () => {
 			let chatHistory = await getHistoryMessages(chatId, contextLimit)
 
@@ -182,7 +183,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 
 	//TODO: 把语音消息转为文字保存, 以保留完整的上下文
 	async function persistMessage(role, content, name, alias) {
-		logger.info("", colorize({ role, content, name, alias }), "persisting message")
+		logger.info("persisting message", colorize({ role, content, name, alias }))
 		await prisma.message.create({
 			data: {
 				content: content,

@@ -76,7 +76,7 @@ export const recognizeAudio = async (filePath) => {
 
 	return new Promise((resolve, reject) => {
 		ws.on("open", () => {
-			console.log("websocket connect!")
+			//console.log("websocket connect!")
 			const readerStream = fs.createReadStream(filePath, {
 				highWaterMark: config.highWaterMark,
 			})

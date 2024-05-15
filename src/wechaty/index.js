@@ -3,7 +3,7 @@ import inquirer from "inquirer"
 import qrTerminal from "qrcode-terminal"
 import { defaultMessage } from "./sendMessage.js"
 import logger from "../common/index.js"
-
+import chalk from "chalk"
 import dotenv from "dotenv"
 
 const env = dotenv.config().parsed // 环境参数
@@ -17,13 +17,13 @@ function onScan(qrcode, status) {
 		)
 		logger.info(`onScan:, ${qrcodeImageUrl}, ${ScanStatus[status]}, ${status}`)
 	} else {
-		logger.info("onScan: %s(%s)", ScanStatus[status], status)
+		logger.info(`onScan: ${ScanStatus[status]}, ${status}`)
 	}
 }
 
 // 登录
 function onLogin(user) {
-	logger.info(`${user} has logged in`)
+	logger.info(`${chalk.yellow(user)} has logged in`)
 	const date = new Date()
 	logger.info(`Current time:${date}`)
 	logger.info(`Automatic robot chat mode has been activated`)
@@ -102,7 +102,7 @@ function bark(message) {
 			logger.info("Notification sent successfully")
 		})
 		.catch((err) => {
-			logger.error(err, "Failed to send notification:")
+			logger.error("Failed to send notification:", err)
 		})
 }
 
@@ -113,7 +113,7 @@ function botStart() {
 			logger.info("Start to log in wechat...")
 		})
 		.catch((e) => {
-			logger.error(e, "botStart error❌")
+			logger.error("botStart error❌", e)
 			// Notify by Bark
 		})
 }

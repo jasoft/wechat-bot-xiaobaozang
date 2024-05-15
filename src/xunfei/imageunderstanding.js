@@ -4,6 +4,7 @@ import fs from "fs"
 import dotenv from "dotenv"
 import base64 from "base64-js"
 import sharp from "sharp"
+import logger from "../common/index.js"
 
 const env = dotenv.config().parsed // 环境
 const appid = env.XUNFEI_APP_ID
@@ -53,7 +54,7 @@ class WsParam {
 
 // 收到websocket错误的处理
 const onError = (error) => {
-	console.error("### error:", error)
+	logger.error("### error:", error)
 }
 
 // 收到websocket关闭的处理
@@ -106,7 +107,7 @@ export async function imageUnderstanding(imagePath, question) {
 		const stats = fs.statSync(imagePath)
 		const currentSize = stats.size
 
-		console.log("metadata", metadata, "size", currentSize)
+		logger.debug({ metadata, currentSize })
 
 		if (currentSize > maxSize) {
 			console.log("Image too large, resize it.")

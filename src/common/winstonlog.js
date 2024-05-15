@@ -1,6 +1,7 @@
+"use strict"
 import { createLogger, format, transports } from "winston"
 import { colorize as colored } from "json-colorizer"
-const { combine, timestamp, printf, colorize } = format
+const { combine, timestamp, printf, colorize, prettyPrint, errors, splat, json, label } = format
 
 function colorObject(obj) {
 	if (typeof obj === "object") return colored(obj)
@@ -15,8 +16,11 @@ const myFormat = printf(({ level, message, timestamp, ...args }) => {
 	}
 	const formattedTimestamp = new Date(timestamp).toLocaleString() // 使用 JavaScript 内置方法格式化时间戳
 	let logMessage = `${formattedTimestamp} [${level}] ${message}`
+
 	Object.entries(args).forEach(([key, value]) => {
-		logMessage += ` [${key}: ${colorObject(value)}]`
+		// 如果参数是一个对象，则使用 JSON.stringify 进行美化打印
+		const formattedValue = typeof value === "object" ? colorObject(value) : value
+		logMessage += ` ${key}: ${formattedValue}`
 	})
 	return logMessage
 })
@@ -27,13 +31,29 @@ const logger = createLogger({
 	format: combine(
 		colorize(), // 添加颜色
 		timestamp(), // 添加时间戳
+		splat(),
+		errors({ stack: true }),
 		myFormat
 	),
-	transports: [new transports.Console()],
+	//myFormat
+
+	transports: [
+		//
+		// - Write to all logs with level `info` and below to `quick-start-combined.log`.
+		// - Write all logs error (and below) to `quick-start-error.log`.
+		//
+		new transports.Console(),
+	],
 })
 
+//
+// If we're not in production then **ALSO** log to the `console`
+// with the colorized simple format.
+//
+const jsonText = await (await fetch("https://dummyjson.com/products/1")).json()
+logger.info(jsonText)
 // 记录简单的消息
-logger.info("This is a simple info message")
+logger.info({ jsonText })
 
 // 记录一个对象
 logger.info({
@@ -48,7 +68,14 @@ logger.info("This is an info message with multiple arguments", {
 	user: { id: 1, name: "John Doe" },
 })
 
-logger.info("prefix", "This is an info message with multiple arguments", {
-	additional: "info",
-	user: { id: 1, name: "John Doe" },
-})
+logger.log("warn", "test message %s, %s", "first", "second", { number: 123 })
+
+logger.log("info", "colored message", { color: "red" })
+logger.info("colored message", { res: {} })
+
+const a = 1
+const b = "hello"
+const c = { key: "value" }
+const d = [1, 2, 3]
+const e = new Date()
+const f = true
