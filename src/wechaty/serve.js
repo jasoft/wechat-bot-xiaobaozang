@@ -1,7 +1,7 @@
-import { getGptReply } from '../openai/index.js'
-import { getKimiReply } from '../kimi/index.js'
-import { getXunfeiReply } from '../xunfei/index.js'
-
+import { getGptReply } from "../openai/index.js"
+import { getKimiReply } from "../kimi/index.js"
+import { getXunfeiReply } from "../xunfei/index.js"
+import { getGroqReply } from "../groq/index.js"
 
 /**
  * 获取ai服务
@@ -9,14 +9,16 @@ import { getXunfeiReply } from '../xunfei/index.js'
  * @returns {Promise<void>}
  */
 export function getServe(serviceType) {
-  switch (serviceType) {
-    case 'ChatGPT':
-      return getGptReply
-    case 'Kimi':
-      return getKimiReply
-    case 'Xunfei':
-      return getXunfeiReply
-    default:
-      return getGptReply
-  }
+	switch (serviceType) {
+		case "ChatGPT":
+			return getGptReply
+		case "Kimi":
+			return getKimiReply
+		case "Xunfei":
+			return getXunfeiReply
+		case "Groq":
+			return getGroqReply
+		default:
+			return getGptReply
+	}
 }

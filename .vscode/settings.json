@@ -1,6 +1,4 @@
 {
-  "cSpell.words": [
-    "kimi",
-    "xunfei"
-  ]
+	"cSpell.words": ["kimi", "xunfei"],
+	"compile-hero.disable-compile-files-on-did-save-code": true
 }
