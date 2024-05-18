@@ -10,6 +10,7 @@ export const aliasWhiteList = ["妈妈", "爸爸", "姐姐", "壮壮", "奶奶"]
 
 export const keywords = [
 	"小宝藏",
+	"过去",
 	"吃饭",
 	"下雨",
 	"天气",

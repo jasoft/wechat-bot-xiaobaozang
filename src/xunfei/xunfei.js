@@ -70,8 +70,16 @@ export async function handleImageMessage(lastUserMessage) {
 
 export async function handleVoiceMessage(lastUserMessage) {
 	const voicePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
-
-	const pcmFilePath = await sil2pcm(voicePath)
+	let pcmFilePath
+	if (voicePath.endsWith(".mp3")) {
+		pcmFilePath = await mp32pcm(voicePath)
+		return recognizeAudio(pcmFilePath)
+	} else if (voicePath.endsWith(".sil")) {
+		pcmFilePath = await sil2pcm(voicePath)
+	} else {
+		logger.error("语音文件格式不正确")
+		return "语音文件格式不正确"
+	}
 
 	return recognizeAudio(pcmFilePath)
 }
@@ -224,5 +232,22 @@ async function sil2pcm(voicePath) {
 
 		logger.info(`Silk文件已成功转换为PCM格式: ${pcmFilePath}`)
 	})
+	return pcmFilePath
+}
+
+async function mp32pcm(voicePath) {
+	const pcmFilePath = voicePath.replace(".mp3", ".pcm")
+
+	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath} > /dev/null 2>&1`
+
+	execSync(ffmpegCommand, (error, stdout, stderr) => {
+		if (error) {
+			console.error(`执行ffmpeg命令失败: ${error}`)
+			return
+		}
+
+		logger.info(`MP3文件已成功转换为PCM格式: ${pcmFilePath}`)
+	})
+
 	return pcmFilePath
 }

@@ -3,6 +3,8 @@ import { getServe } from "./serve.js"
 import { PrismaClient } from "@prisma/client"
 import logger from "../common/index.js"
 import { colorize } from "json-colorizer"
+import pkg from "@wcferry/core"
+const { Message, Wcferry } = pkg
 const prisma = new PrismaClient()
 
 async function buildPrompt(context) {
@@ -18,32 +20,37 @@ async function buildPrompt(context) {
 	return contexts
 }
 
-/*
- * Handles the default message received by the bot.
+/**
+ * Adds two numbers.
+ * @param {Message} msg  - The first number.
+ * @param {Wcferry} bot - The second number.
+ * @param {string} ServiceType - The second number.
  *
- * @param {object} msg - The message object.
- * @param {object} bot - The bot object.
- * @param {string} [ServiceType="GPT"] - The service type for generating replies.
- * @returns {Promise<void>} - A promise that resolves when the message is handled.
  */
+const MSG_TYPE_TEXT = 1
+const MSG_TYPE_IMAGE = 3
+const MSG_TYPE_VOICE = 34
+
 export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	const getReply = getServe(ServiceType)
-	const contact = msg.talker() // 发消息人
-	const receiver = msg.to() // 消息接收人
-	const room = msg.room() // 是否是群消息
-	const roomName = (await room?.topic()) || null // 群名称
-	const alias = (await contact.alias()) || (await contact.name()) // 发消息人昵称
-	const remarkName = await contact.alias() // 备注名称
-	const name = await contact.name() // 微信名称
-	const isText = msg.type() === bot.Message.Type.Text // 消息类型是否为文本
-	const isImage = msg.type() === bot.Message.Type.Image // 消息类型是否为图片
-	const isVoice = msg.type() === bot.Message.Type.Audio // 消息类型是否为语音
-	const content = msg.text() ? msg.text() : "[其他消息]"
+	const contactId = msg.sender // 发消息人
+	const contact = bot.getContact(contactId) // 发消息人
+	const roomId = msg.roomId // 是否是群消息
+	const roomName = bot.getContact(roomId).remark || null // 群名称
+
+	const alias = contact.remark ? contact.remark : contact.name // 发消息人昵称
+	const remarkName = contact.remark // 备注名称
+	const name = contact.name // 微信名称
+
+	const isText = msg.type === MSG_TYPE_TEXT // 消息类型是否为文本
+	const isImage = msg.type === MSG_TYPE_IMAGE // 消息类型是否为图片
+	const isVoice = msg.type === MSG_TYPE_VOICE // 消息类型是否为语音
+	const content = msg.content ? msg.content : "[其他消息]"
 	const isRoom = roomWhiteList.includes(roomName) // 是否在群聊白名单内并且艾特了机器人或聊天触发了关键字
 	const isAlias = aliasWhiteList.includes(remarkName) || aliasWhiteList.includes(name) // 发消息的人是否在联系人白名单内
 	const cleanedBotName = botName.replace("@", "")
 	const isBotSelf = cleanedBotName === remarkName || cleanedBotName === name
-	const topicId = room ? room.id : contact.id // 发消息人id或群id
+	const topicId = roomId ? roomId : contactId // 发消息人id或群id
 
 	// TODO 你们可以根据自己的需求修改这里的逻辑
 	const data = {
@@ -51,7 +58,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 		alias: alias,
 		name: name,
 		content: content,
-		msgtype: msg.type(),
+		msgtype: msg.type,
 		remarkName: remarkName,
 		isRoom: isRoom,
 		isAlias: isAlias,
@@ -108,7 +115,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 		}
 
 		// 私人聊天，白名单内的直接发送
-		if (isAlias && !room) {
+		if (isAlias && !roomId) {
 			await handleChat(false, contact.id)
 		}
 	} catch (e) {
@@ -122,15 +129,10 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 		const buildMessages = async () => {
 			let chatHistory = await getHistoryMessages(chatId, contextLimit)
 
-			switch (msg.type()) {
-				case bot.Message.Type.Image:
-					chatHistory = [{ role: "user", alias: alias, content: normalizedMessage }]
-					break
-				case bot.Message.Type.Audio:
-					chatHistory.push({ role: "user", alias: alias, content: normalizedMessage })
-					break
-				default:
-					break
+			if (isImage) {
+				chatHistory = [{ role: "user", alias: alias, content: normalizedMessage }]
+			} else if (isVoice) {
+				chatHistory.push({ role: "user", alias: alias, content: normalizedMessage })
 			}
 			return chatHistory
 			// 如果是文本消息，获取历史消息
@@ -153,10 +155,11 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 
 		// 保存bot发的消息
 		await persistMessage("assistant", sayText, botName, botName)
-		const teller = isRoom ? room : contact
-		teller.say(sayText)
+		const tellerId = isRoom ? roomId : contactId
 
-		logger.debug(response, isRoom ? "room response" : "contact response")
+		bot.sendTxt(sayText, tellerId)
+
+		logger.debug(isRoom ? "room response" : "contact response", response)
 
 		async function updateVoiceMsgToText() {
 			const lastMessage = await prisma.message.findFirst({
@@ -184,14 +187,22 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	async function normalizeMessage() {
 		let normalizedMessage = content
 		// 如果是图片或者语音消息，保存文件
-		if (isImage || isVoice) {
-			const fileBox = await msg.toFileBox()
-			const fileName = `./assets/${fileBox.name}`
-			await fileBox.toFile(fileName, true)
-
-			normalizedMessage = isImage ? `[图片消息]{${fileName}}` : `[语音消息]{${fileName}}`
+		try {
+			if (isVoice) {
+				logger.info("voice message", msg.id)
+				const fileName = await bot.getAudioMsg(msg.id, "/tmp/", 30)
+				normalizedMessage = `[语音消息]{${fileName}}`
+			}
+			if (isImage) {
+				const fileName = await bot.downloadImage(msg.id, `assets`)
+				normalizedMessage = `[图片消息]{${fileName}}`
+			}
+			// 保存用户发的消息
+		} catch (error) {
+			logger.error("下载语音/图片出错", error)
+			normalizedMessage = "[其他消息][错误]下载语音/图片出错"
+			// Handle the error here
 		}
-		// 保存用户发的消息
 
 		return normalizedMessage
 	}

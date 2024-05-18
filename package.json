@@ -6,7 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"start": "node ./index.js",
-		"dev": "nodemon -i  WechatEveryDay.memory-card.json ./index.js",
+		"dev": "nodemon -i WechatEveryDay.memory-card.json -w .env -w src -w ./  ./index.js",
 		"test": "node ./src/wechaty/testMessage.js",
 		"test-openai": "node ./src/openai/__test__.js",
 		"test-xunfei": "node ./src/xunfei/__test__.js",
@@ -16,6 +16,7 @@
 	"license": "ISC",
 	"dependencies": {
 		"@prisma/client": "^5.13.0",
+		"@wcferry/core": "^0.1.6",
 		"axios": "^1.6.8",
 		"chalk": "^5.3.0",
 		"chatgpt": "^2.5.2",
