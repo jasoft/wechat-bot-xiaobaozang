@@ -37,7 +37,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	const contactId = msg.sender // 发消息人
 	const contact = bot.getContact(contactId) // 发消息人
 	const roomId = msg.roomId // 是否是群消息
-	const roomName = bot.getContact(roomId).remark || null // 群名称
+	const roomName = bot.getContact(roomId).name || null // 群名称
 
 	const alias = contact.remark ? contact.remark : contact.name // 发消息人昵称
 	const remarkName = contact.remark // 备注名称
@@ -61,6 +61,7 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 		content: content,
 		msgtype: msg.type,
 		remarkName: remarkName,
+		roomName: roomName,
 		isRoom: isRoom,
 		isAlias: isAlias,
 		isBotSelf: isBotSelf,
@@ -81,9 +82,9 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	try {
 		// 区分群聊和私聊
 
-		if (isRoom && room) {
+		if (isRoom && roomId) {
 			// 此处获取的历史消息包括了刚发的一条
-			const historyMessages = await getHistoryMessages(room.id, contextLimit)
+			const historyMessages = await getHistoryMessages(roomId, contextLimit)
 			const triggedByKeywords = historyMessages.some((message) => {
 				const triggeredKeyword = keywords.find((keyword) => message.content.includes(keyword))
 				if (triggeredKeyword) {
@@ -111,13 +112,13 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 
 			if (triggedByKeywords || isImage || isVoice || botInConversation) {
 				//const question = (await msg.mentionText()) || content.replace(`${botName}`, "") // 去掉艾特的消息主体
-				await handleChat(true, room.id)
+				await handleChat(true, roomId)
 			}
 		}
 
 		// 私人聊天，白名单内的直接发送
 		if (isAlias && !roomId) {
-			await handleChat(false, contact.id)
+			await handleChat(false, contactId)
 		}
 	} catch (e) {
 		console.error(e)

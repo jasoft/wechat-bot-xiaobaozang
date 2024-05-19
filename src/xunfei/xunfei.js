@@ -222,7 +222,7 @@ export async function xunfeiSendMsg(inputVal) {
 async function sil2pcm(voicePath) {
 	const pcmFilePath = voicePath.replace(".sil", ".pcm")
 
-	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath} > /dev/null 2>&1`
+	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath}`
 
 	execSync(ffmpegCommand, (error, stdout, stderr) => {
 		if (error) {
