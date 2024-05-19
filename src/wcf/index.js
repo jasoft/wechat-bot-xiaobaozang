@@ -12,21 +12,20 @@ let serviceType = "Groq"
 let off = () => {}
 
 async function startBot() {
-	const client = new Wcferry({ port: 30049 })
+	const client = new Wcferry({ host: env.WCF_HOST, port: parseInt(env.WCF_PORT) })
 	client.start()
 	const isLogin = client.isLogin()
 
 	// Start receiving messages
 	off = client.on((msg) => {
-		console.log("received message:", msg)
 		defaultMessage(msg, client, serviceType)
 	})
 
-	console.log({ isLogin: isLogin, recving: client.msgReceiving })
+	logger.info("System Status:", { isLogin: isLogin, recving: client.msgReceiving })
 
 	// Send an initial message
 
-	console.log("Bot is running...")
+	logger.info("Bot is running...")
 
 	// Keep the bot running indefinitely
 	while (client.msgReceiving) {
