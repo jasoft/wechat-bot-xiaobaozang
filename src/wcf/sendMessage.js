@@ -1,5 +1,6 @@
 import { botName, roomWhiteList, aliasWhiteList, keywords, contextLimit } from "../../config.js"
 import { getServe } from "./serve.js"
+import path from "path"
 import { PrismaClient } from "@prisma/client"
 import logger from "../common/index.js"
 import { colorize } from "json-colorizer"
@@ -187,14 +188,15 @@ export async function defaultMessage(msg, bot, ServiceType = "GPT") {
 	async function normalizeMessage() {
 		let normalizedMessage = content
 		// 如果是图片或者语音消息，保存文件
+		const attachmentPath = path.join(process.cwd(), "public", "attachments")
 		try {
 			if (isVoice) {
 				logger.info("voice message", msg.id)
-				const fileName = await bot.getAudioMsg(msg.id, "/tmp/", 30)
+				const fileName = await bot.getAudioMsg(msg.id, attachmentPath)
 				normalizedMessage = `[语音消息]{${fileName}}`
 			}
 			if (isImage) {
-				const fileName = await bot.downloadImage(msg.id, `assets`)
+				const fileName = await bot.downloadImage(msg.id, attachmentPath)
 				normalizedMessage = `[图片消息]{${fileName}}`
 			}
 			// 保存用户发的消息

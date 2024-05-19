@@ -63,13 +63,13 @@ function authenticate() {
 }
 
 export async function handleImageMessage(lastUserMessage) {
-	const imagePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
+	const imagePath = lastUserMessage.content.match(/\{(.*)\}/)[1]
 	//logger.info(imagePath)
 	return imageUnderstanding(imagePath, env.IMAGE_UNDERSTANDING_PROMPT)
 }
 
 export async function handleVoiceMessage(lastUserMessage) {
-	const voicePath = path.join(process.cwd(), lastUserMessage.content.match(/\{(.*)\}/)[1])
+	const voicePath = lastUserMessage.content.match(/\{(.*)\}/)[1]
 	let pcmFilePath
 	if (voicePath.endsWith(".mp3")) {
 		pcmFilePath = await mp32pcm(voicePath)
@@ -238,7 +238,7 @@ async function sil2pcm(voicePath) {
 async function mp32pcm(voicePath) {
 	const pcmFilePath = voicePath.replace(".mp3", ".pcm")
 
-	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath} > /dev/null 2>&1`
+	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath}`
 
 	execSync(ffmpegCommand, (error, stdout, stderr) => {
 		if (error) {

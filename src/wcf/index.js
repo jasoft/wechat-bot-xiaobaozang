@@ -12,7 +12,7 @@ let serviceType = "Groq"
 let off = () => {}
 
 async function startBot() {
-	const client = new Wcferry({ host: env.WCF_HOST, port: parseInt(env.WCF_PORT) })
+	const client = new Wcferry({ port: 30049 })
 	client.start()
 	const isLogin = client.isLogin()
 
