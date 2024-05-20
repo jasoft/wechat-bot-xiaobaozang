@@ -62,27 +62,6 @@ function authenticate() {
 	})
 }
 
-export async function handleImageMessage(lastUserMessage) {
-	const imagePath = lastUserMessage.content.match(/\{(.*)\}/)[1]
-	//logger.info(imagePath)
-	return imageUnderstanding(imagePath, env.IMAGE_UNDERSTANDING_PROMPT)
-}
-
-export async function handleVoiceMessage(lastUserMessage) {
-	const voicePath = lastUserMessage.content.match(/\{(.*)\}/)[1]
-	let pcmFilePath
-	if (voicePath.endsWith(".mp3")) {
-		pcmFilePath = await mp32pcm(voicePath)
-		return recognizeAudio(pcmFilePath)
-	} else if (voicePath.endsWith(".sil")) {
-		pcmFilePath = await sil2pcm(voicePath)
-	} else {
-		logger.error("语音文件格式不正确")
-		return "语音文件格式不正确"
-	}
-
-	return recognizeAudio(pcmFilePath)
-}
 /**
  * 发送消息到讯飞ai接口获取回复。
  * @param {Array} inputVal - 输入的消息数组。
@@ -217,37 +196,4 @@ export async function xunfeiSendMsg(inputVal) {
 	})
 
 	return await messagePromise
-}
-
-async function sil2pcm(voicePath) {
-	const pcmFilePath = voicePath.replace(".sil", ".pcm")
-
-	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath}`
-
-	execSync(ffmpegCommand, (error, stdout, stderr) => {
-		if (error) {
-			console.error(`执行ffmpeg命令失败: ${error}`)
-			return
-		}
-
-		logger.info(`Silk文件已成功转换为PCM格式: ${pcmFilePath}`)
-	})
-	return pcmFilePath
-}
-
-async function mp32pcm(voicePath) {
-	const pcmFilePath = voicePath.replace(".mp3", ".pcm")
-
-	const ffmpegCommand = `ffmpeg -y -i ${voicePath} -f s16le -acodec pcm_s16le ${pcmFilePath}`
-
-	execSync(ffmpegCommand, (error, stdout, stderr) => {
-		if (error) {
-			console.error(`执行ffmpeg命令失败: ${error}`)
-			return
-		}
-
-		logger.info(`MP3文件已成功转换为PCM格式: ${pcmFilePath}`)
-	})
-
-	return pcmFilePath
 }

@@ -62,7 +62,8 @@ class MessageHandler {
 				await this.handleChat(false, this.contactId)
 			}
 		} catch (e) {
-			logger.error(e)
+			logger.error("sendMessage", e.message)
+			console.error(e)
 		} finally {
 			await prisma.$disconnect()
 		}
@@ -105,12 +106,20 @@ class MessageHandler {
 		}
 	}
 
+	/**
+	 * 处理聊天消息
+	 *
+	 * @param isRoom 是否是群聊
+	 * @param chatId 聊天id
+	 * @returns 无返回值
+	 */
 	async handleChat(isRoom, chatId) {
 		const messages = await this.prepareMessagesForPrompt(chatId, isRoom)
 		if (messages.length === 0) return
 
 		const question = await this.buildPrompt(messages)
 		const response = await this.getReply(question)
+		logger.debug(isRoom ? "room response" : "contact response", colorize(response))
 		let sayText = response.response
 
 		if (this.isVoice) {
@@ -119,8 +128,6 @@ class MessageHandler {
 
 		await this.saveMessageToDatabase("assistant", sayText, botName, botName)
 		this.bot.sendTxt(sayText, chatId)
-
-		logger.debug(isRoom ? "room response" : "contact response", response)
 	}
 
 	async prepareMessagesForPrompt(chatId) {
