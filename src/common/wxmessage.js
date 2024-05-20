@@ -13,7 +13,7 @@ function extractPathFromMessage(message) {
 export async function getImageRecognitionText(lastUserMessage) {
 	const imagePath = extractPathFromMessage(lastUserMessage)
 	//logger.info(imagePath)
-	return imageUnderstanding(imagePath, env.IMAGE_UNDERSTANDING_PROMPT)
+	return imageUnderstanding(imagePath, process.env.IMAGE_UNDERSTANDING_PROMPT)
 }
 
 /**
