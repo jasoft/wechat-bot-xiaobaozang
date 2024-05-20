@@ -24,6 +24,9 @@ class Summarizer {
 					content: true,
 					createdAt: true,
 				},
+				where: {
+					role: { not: "summary" },
+				},
 			})
 
 			// 对消息按照 topicId 进行分组
