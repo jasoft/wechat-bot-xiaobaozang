@@ -149,9 +149,12 @@ class MessageHandler {
 					return { role: message.role, content: `我是${message.alias},${message.content}` }
 				} else if (message.role === "assistant") {
 					return { role: message.role, content: `${message.content}` }
+				} else if (message.role === "summary") {
+					return { role: "user", content: `以下是我们以前聊天的总结:${message.content}` }
 				}
 			})
 			.reverse()
+
 		return contexts
 	}
 
@@ -191,23 +194,37 @@ class MessageHandler {
 		})
 	}
 
+	async getSummaryByTopic(topicId) {
+		return prisma.message.findFirst({
+			where: {
+				topicId: topicId,
+				role: "summary",
+			},
+		})
+	}
 	/**
 	 * 获取历史消息列表
 	 *
-	 * @param id 主题ID
+	 * @param topicId 主题ID
 	 * @param nums 获取的消息数量
 	 * @returns 返回一个Promise，resolve为历史消息数组，reject为错误信息
 	 */
-	async getHistoryMessages(id, nums) {
-		return await prisma.message.findMany({
+	async getHistoryMessages(topicId, nums) {
+		const recentMessages = await prisma.message.findMany({
 			where: {
-				topicId: id,
+				topicId: topicId,
 			},
 			take: nums,
 			orderBy: {
 				createdAt: "desc",
 			},
 		})
+
+		const summary = await this.getSummaryByTopic(topicId)
+		if (summary) {
+			recentMessages.push(summary)
+		}
+		return recentMessages
 	}
 
 	/**

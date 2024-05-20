@@ -27,6 +27,6 @@ export const keywords = [
 	"大雨",
 ]
 
-export const contextLimit = 5 // 上下文对话的长度
+export const contextLimit = 10 // 上下文对话的长度
 
 export const tokensLimit = 512 // 消息长度限制

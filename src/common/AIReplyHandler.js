@@ -1,6 +1,8 @@
 "use strict"
 
 import { getVoiceRecognitionText, getImageRecognitionText } from "./wxmessage.js"
+import logger from "./index.js"
+import { colorize } from "json-colorizer"
 
 export class AIReplyHandler {
 	constructor() {
@@ -55,6 +57,7 @@ export class AIReplyHandler {
 			},
 		]
 		payloadText.push(...payload)
+		logger.info("AIReplyHandler: getAIReply", colorize(payloadText))
 		const parsedMessage = await this.parseMessage(payloadText)
 
 		// 有返回了response,不需要提交给 ai 处理, 则直接返回

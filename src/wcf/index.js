@@ -4,6 +4,7 @@ import { defaultMessage } from "./sendMessage.js"
 import logger from "../common/index.js"
 import chalk from "chalk"
 import dotenv from "dotenv"
+import Summarizer from "../common/summarize.js"
 
 const env = dotenv.config().parsed // 环境参数
 
@@ -28,8 +29,15 @@ async function startBot() {
 	logger.info("Bot is running...")
 
 	// Keep the bot running indefinitely
+	let tick = 0
 	while (client.msgReceiving) {
 		await new Promise((resolve) => setTimeout(resolve, 1000)) // Wait for 1 second
+		// run summarize every 10 minutes
+		if (tick % 600 === 0) {
+			logger.info("运行总结")
+			new Summarizer().summarizeContentByTopicId()
+		}
+		tick += 1
 	}
 	off()
 	client.stop()
