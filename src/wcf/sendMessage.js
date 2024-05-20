@@ -145,17 +145,15 @@ class MessageHandler {
 	}
 
 	async buildPrompt(context) {
-		const contexts = context
-			.map((message) => {
-				if (message.role === "user") {
-					return { role: message.role, content: `我是${message.alias},${message.content}` }
-				} else if (message.role === "assistant") {
-					return { role: message.role, content: `${message.content}` }
-				} else if (message.role === "summary") {
-					return { role: "user", content: `以下是我们以前聊天的总结:${message.content}` }
-				}
-			})
-			.reverse()
+		const contexts = context.map((message) => {
+			if (message.role === "user") {
+				return { role: message.role, content: `我是${message.alias},${message.content}` }
+			} else if (message.role === "assistant") {
+				return { role: message.role, content: `${message.content}` }
+			} else if (message.role === "summary") {
+				return { role: "user", content: `以下是我们以前聊天的总结:${message.content}` }
+			}
+		})
 
 		return contexts
 	}
@@ -226,7 +224,7 @@ class MessageHandler {
 		if (summary) {
 			recentMessages.push(summary)
 		}
-		return recentMessages
+		return recentMessages.reverse()
 	}
 
 	/**
