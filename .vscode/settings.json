@@ -1,4 +1,13 @@
 {
 	"cSpell.words": ["kimi", "xunfei"],
-	"compile-hero.disable-compile-files-on-did-save-code": true
+	"compile-hero.disable-compile-files-on-did-save-code": true,
+	"sqltools.useNodeRuntime": true,
+	"sqltools.connections": [
+		{
+			"previewLimit": 200,
+			"driver": "SQLite",
+			"name": "xiaobaozang",
+			"database": "${workspaceFolder:nodejsclient}/prisma/dev.db"
+		}
+	]
 }
