@@ -72,36 +72,37 @@ class MessageHandler {
 	/**
 	 * 处理群消息, 判断是否需要触发对话, 触发对话则发送消息 (只有在群聊中触发关键词或者在群聊中与机器人对话时才会触发)
 	 *
-	 *
 	 * @returns {Promise<void>} 无返回值
 	 */
 	async handleRoomMessage() {
 		const historyMessages = await this.getHistoryMessages(this.roomId, contextLimit)
-		const triggedByKeywords = historyMessages.some((message) => {
-			const triggeredKeyword = keywords.find((keyword) => message.content.includes(keyword))
-			if (triggeredKeyword) {
-				logger.info("Triggered keyword:", triggeredKeyword)
-				return true
-			}
-			return false
+		const lastMessage = historyMessages.at(-1)
+		const lastMessageContainsKeyword = keywords.some((keyword) => lastMessage.content.includes(keyword))
+
+		const triggeredByKeywordsInHistory = historyMessages.some((message) => {
+			return keywords.some((keyword) => message.content.includes(keyword))
 		})
 
 		const botInConversation = () => {
-			const lastMessageIsBot = historyMessages.length > 1 ? historyMessages[1].role == "assistant" : false
+			const lastMessageIsBot = historyMessages.length > 1 ? historyMessages[1].role === "assistant" : false
 			if (lastMessageIsBot) {
 				const lastBotMessageTime = historyMessages[1].createdAt
 				const timeSinceLastBotMessage = new Date() - lastBotMessageTime
 				logger.info("Time since last bot message:", timeSinceLastBotMessage)
-				if (timeSinceLastBotMessage < 1000 * 60 * 5) {
-					logger.info("Last message is bot and within 5 minutes, we are still in a conversation, reply.")
+				if (timeSinceLastBotMessage < 1000 * 60 * 5 && triggeredByKeywordsInHistory) {
+					logger.info("Last message is bot and within 5 minutes, history messages contain keyword, reply.")
 					return true
 				}
 			}
 			logger.info("Last message is bot:", lastMessageIsBot)
 			return false
 		}
-
-		if (triggedByKeywords || this.isImage || this.isVoice || botInConversation()) {
+		logger.info("检查是否应该回复群消息:", {
+			lastMessageContainsKeyword,
+			triggeredByKeywordsInHistory,
+			botInConversation: botInConversation(),
+		})
+		if (lastMessageContainsKeyword || botInConversation() || this.isImage || this.isVoice) {
 			await this.handleChat(true, this.roomId)
 		}
 	}

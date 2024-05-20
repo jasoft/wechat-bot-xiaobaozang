@@ -16,7 +16,7 @@ logger.addLevel("event", 5000, { fg: "cyan" }, "event")
 logger.addLevel("debug", 1500, { fg: "blue" }, "debug")
 // logger.addLevel("warn", 3000, { fg: "yellow", bold: true })
 // logger.addLevel("error", 4000, { fg: "red", bold: true, underline: true })
-logger.level = "debug"
+logger.level = "info"
 // 使用自定义的日志级别
 // logger.event("INIT", "Initialization started")
 // logger.warn("DEPLOY", "Deployment might take a while")
