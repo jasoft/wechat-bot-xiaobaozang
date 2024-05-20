@@ -77,6 +77,7 @@ class MessageHandler {
 	async handleRoomMessage() {
 		const historyMessages = await this.getHistoryMessages(this.roomId, contextLimit)
 		const lastMessage = historyMessages.at(-1)
+		logger.info("最后一条消息", lastMessage)
 		const lastMessageContainsKeyword = keywords.some((keyword) => lastMessage.content.includes(keyword))
 
 		const triggeredByKeywordsInHistory = historyMessages.some((message) => {
