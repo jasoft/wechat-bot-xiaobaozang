@@ -25,7 +25,7 @@ class Summarizer {
 					createdAt: true,
 				},
 				where: {
-					role: { not: "summary" },
+					role: "user",
 				},
 			})
 
