@@ -15,7 +15,7 @@
   "author": "rongding",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^5.13.0",
+    "@prisma/client": "^5.14.0",
     "@wcferry/core": "^0.1.6",
     "axios": "^1.6.8",
     "base64-js": "^1.5.1",
