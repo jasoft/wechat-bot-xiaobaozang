@@ -119,7 +119,7 @@ export async function imageUnderstanding(imagePath, question) {
 	}
 
 	// ...
-	const maxSize = 700 * 1024 // 700 KB
+	const maxSize = 500 * 1024 // 700 KB
 
 	const resizedImage = await getImageData(imagePath, maxSize)
 
