@@ -101,31 +101,36 @@ const getText = (role, content) => {
 
 export async function imageUnderstanding(imagePath, question) {
 	// ...
-	const getImageData = async (imagePath, maxSize) => {
-		const image = sharp(imagePath)
-		const metadata = await image.metadata()
-		const stats = fs.statSync(imagePath)
-		const currentSize = stats.size
+	async function resizeImageToBase64(inputPath, maxBase64SizeKB = 4096) {
+		let image = sharp(inputPath)
+		let metadata = await image.metadata()
 
-		logger.debug({ metadata, currentSize })
+		let width = metadata.width
+		let height = metadata.height
 
-		if (currentSize > maxSize) {
-			console.log("Image too large, resize it.")
-			const resizedImage = await image.resize({ size: maxSize }).toBuffer()
-			return resizedImage
-		} else {
-			return fs.readFileSync(imagePath)
+		while (true) {
+			// Resize the image
+			const buffer = await image.resize(width, height, { fit: "inside" }).toBuffer()
+
+			// Convert to base64
+			const base64Image = buffer.toString("base64")
+			const base64SizeKB = Buffer.byteLength(base64Image, "utf8") / 1024
+
+			if (base64SizeKB <= maxBase64SizeKB) {
+				return base64Image
+			}
+
+			// Reduce the width and height for the next iteration
+			width = Math.floor(width * 0.9)
+			height = Math.floor(height * 0.9)
+			logger.info(`Image too large, resizing image to ${width}x${height} (base64 size: ${base64SizeKB} KB)`)
 		}
 	}
 
-	// ...
-	const maxSize = 500 * 1024 // 700 KB
-
-	const resizedImage = await getImageData(imagePath, maxSize)
+	const resizedImageBase64 = await resizeImageToBase64(imagePath)
 
 	// Convert the resized image buffer to base64
-	const resizedImageBase64 = resizedImage.toString("base64")
-	console.log("resizedSize", resizedImageBase64.length)
+	logger.debug("resizedSize(base64)", resizedImageBase64.length)
 
 	const text = [{ role: "user", content: resizedImageBase64, content_type: "image" }]
 	let result = ""
