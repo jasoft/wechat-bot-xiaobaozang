@@ -1,5 +1,5 @@
 import { execSync } from "child_process"
-
+import { imageUnderstanding } from "../xunfei/imageunderstanding.js"
 function extractPathFromMessage(message) {
 	const path = message.content.match(/\{(.*)\}/)[1]
 	return path
