@@ -1,4 +1,4 @@
-import { getGptReply } from "../openai/index.js"
+import { getOpenAiReply } from "../openai/index.js"
 import { getKimiReply } from "../kimi/index.js"
 import { getXunfeiReply } from "../xunfei/index.js"
 import { getGroqReply } from "../groq/index.js"
@@ -11,7 +11,7 @@ import { getGroqReply } from "../groq/index.js"
 export function getServe(serviceType) {
 	switch (serviceType) {
 		case "ChatGPT":
-			return getGptReply
+			return getOpenAiReply
 		case "Kimi":
 			return getKimiReply
 		case "Xunfei":
@@ -19,6 +19,6 @@ export function getServe(serviceType) {
 		case "Groq":
 			return getGroqReply
 		default:
-			return getGptReply
+			return getOpenAiReply
 	}
 }

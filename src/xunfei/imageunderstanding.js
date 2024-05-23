@@ -4,7 +4,7 @@ import fs from "fs"
 import dotenv from "dotenv"
 import base64 from "base64-js"
 import sharp from "sharp"
-import logger from "../common/index.js"
+import logger from "../common/logger.js"
 
 const env = dotenv.config().parsed // 环境
 const appid = env.XUNFEI_APP_ID

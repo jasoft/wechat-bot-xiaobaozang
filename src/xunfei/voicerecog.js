@@ -2,7 +2,7 @@ import fs from "fs"
 import WebSocket from "ws"
 import CryptoJS from "crypto-js"
 import dotenv from "dotenv"
-import logger from "../common/index.js"
+import logger from "../common/logger.js"
 const env = dotenv.config().parsed // 环境参数
 const appID = env.XUNFEI_APP_ID
 const apiKey = env.XUNFEI_API_KEY

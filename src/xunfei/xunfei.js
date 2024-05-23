@@ -13,7 +13,7 @@ import process from "process"
 import { FileBox } from "file-box"
 import { execSync } from "child_process"
 import { recognizeAudio } from "./voicerecog.js"
-import logger from "../common/index.js"
+import logger from "../common/logger.js"
 
 const env = dotenv.config().parsed // 环境参数
 // APPID，APISecret，APIKey在https://console.xfyun.cn/services/cbm这里获取

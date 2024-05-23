@@ -2,11 +2,12 @@ import { botName, roomWhiteList, aliasWhiteList, keywords, contextLimit } from "
 import { getServe } from "./serve.js"
 import path from "path"
 import { PrismaClient } from "@prisma/client"
-import logger from "../common/index.js"
+import logger from "../common/logger.js"
 import { colorize } from "json-colorizer"
 import pkg from "@wcferry/core"
 const { Message, Wcferry } = pkg
 const prisma = new PrismaClient()
+import { formatDistanceToNow } from "date-fns"
 
 class MessageHandler {
 	/**
@@ -84,26 +85,33 @@ class MessageHandler {
 			return keywords.some((keyword) => message.content.includes(keyword))
 		})
 
-		const botInConversation = () => {
-			const lastMessageIsBot = historyMessages.length > 1 ? historyMessages[1].role === "assistant" : false
-			if (lastMessageIsBot) {
-				const lastBotMessageTime = historyMessages[1].createdAt
-				const timeSinceLastBotMessage = new Date() - lastBotMessageTime
-				logger.info("Time since last bot message:", timeSinceLastBotMessage)
-				if (timeSinceLastBotMessage < 1000 * 60 * 5 && triggeredByKeywordsInHistory) {
-					logger.info("Last message is bot and within 5 minutes, history messages contain keyword, reply.")
-					return true
+		const botIsActive = () => {
+			for (let i = historyMessages.length - 1; i >= 0; i--) {
+				if (historyMessages[i].role === "assistant") {
+					const lastBotMessageTime = new Date(historyMessages[i].createdAt)
+					const timeSinceLastBotMessage = new Date() - lastBotMessageTime
+					logger.info(
+						"Time since last bot message:",
+						formatDistanceToNow(lastBotMessageTime, { addSuffix: true })
+					)
+					if (timeSinceLastBotMessage < 1000 * 60 * 5) {
+						logger.info("Found bot message within 5 minutes, we are still in a conversation, reply.")
+						return true
+					} else {
+						break // Exit loop if the message is older than 5 minutes
+					}
 				}
 			}
-			logger.info("Last message is bot:", lastMessageIsBot)
+			logger.info("No recent bot message found in the last 5 minutes.")
 			return false
 		}
 		logger.info("检查是否应该回复群消息:", {
 			lastMessageContainsKeyword,
 			triggeredByKeywordsInHistory,
-			botInConversation: botInConversation(),
+			botInConversation: botIsActive(),
 		})
-		if (lastMessageContainsKeyword || botInConversation() || this.isImage || this.isVoice) {
+		if (lastMessageContainsKeyword || botIsActive() || this.isImage || this.isVoice) {
+			logger.info(`触发群消息回复, 发送消息到群聊"${this.roomName}"`)
 			await this.handleChat(true, this.roomId)
 		}
 	}
@@ -180,6 +188,10 @@ class MessageHandler {
 	}
 
 	async saveMessageToDatabase(role, content, name, alias) {
+		if (content.startsWith("<")) {
+			logger.warn("Ignoring message with HTML content", content)
+			return
+		}
 		logger.info("Saving message to database", colorize({ role, content, name, alias }))
 		await prisma.message.create({
 			data: {

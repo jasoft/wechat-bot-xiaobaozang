@@ -1,15 +1,21 @@
 "use strict"
 
 import { getVoiceRecognitionText, getImageRecognitionText } from "./wxmessage.js"
-import logger from "./index.js"
+import logger from "./logger.js"
 import { colorize } from "json-colorizer"
+import OpenAI from "openai"
 
 export class AIReplyHandler {
-	constructor() {
-		this.env = process.env
+	constructor(env = process.env) {
+		this.env = env
+		this.openai = new OpenAI({
+			apiKey: this.env.OPENAI_API_KEY,
+			baseURL: this.env.OPENAI_ENDPOINT,
+		})
+		// This is the default and can be omitted}env.OPENAI_API_KEY)
 	}
 
-	async parseMessage(payloadText) {
+	async parseMessage(payloadText, parseMedia = true) {
 		const lastUserMessage = payloadText.at(-1)
 		let result = {
 			orignalMessage: lastUserMessage.content,
@@ -17,25 +23,27 @@ export class AIReplyHandler {
 			response: null,
 			payload: payloadText,
 		}
-		// If the last parsedMessage is an image parsedMessage, call the image understanding API
-		if (lastUserMessage.content.includes("[图片消息]")) {
-			// 如果是图片直接返回识别结果,不参与对话
-			const response = await getImageRecognitionText(lastUserMessage)
-			result.convertedMessage = response
-			result.response = response
-		}
+		// 如果需要解析媒体消息, 例如微信消息
+		if (parseMedia) {
+			// If the last parsedMessage is an image parsedMessage, call the image understanding API
+			if (lastUserMessage.content.includes("[图片消息]")) {
+				// 如果是图片直接返回识别结果,不参与对话
+				const response = await getImageRecognitionText(lastUserMessage)
+				result.convertedMessage = response
+				result.response = response
+			}
 
-		// 如果最后一条消息是语音消息，调用语音理解接口
-		else if (lastUserMessage.content.includes("[语音消息]")) {
-			// 替换最后一条消息为语音识别结果
-			const response = await getVoiceRecognitionText(lastUserMessage)
-			const payload = [...payloadText]
-			payload.pop()
-			payload.push({ role: "user", content: response })
-			result.convertedMessage = response
-			result.payload = payload
+			// 如果最后一条消息是语音消息，调用语音理解接口
+			else if (lastUserMessage.content.includes("[语音消息]")) {
+				// 替换最后一条消息为语音识别结果
+				const response = await getVoiceRecognitionText(lastUserMessage)
+				const payload = [...payloadText]
+				payload.pop()
+				payload.push({ role: "user", content: response })
+				result.convertedMessage = response
+				result.payload = payload
+			}
 		}
-
 		// 如果错误,返回错误信息
 		else if (lastUserMessage.content.includes("[错误]")) {
 			result.response = "对不起，我无法理解你的意思，试试用文字吧"
@@ -46,7 +54,27 @@ export class AIReplyHandler {
 	}
 
 	async getResponse(parsedMessage) {
-		throw new Error("Not implemented, you should implement your own getResponse method")
+		const { orignalMessage, convertedMessage, payload } = parsedMessage
+
+		const chatCompletion = await this.openai.chat.completions.create({
+			messages: payload,
+			model: this.env.OPENAI_MODEL,
+			temperature: 1,
+			max_tokens: 1024,
+			top_p: 0.8,
+			stream: false,
+			stop: null,
+		})
+
+		// Print the completion returned by the LLM.
+		const responseText = chatCompletion.choices[0]?.message?.content || ""
+		const result = {
+			orignalMessage: orignalMessage,
+			convertedMessage: convertedMessage,
+			response: responseText,
+		}
+		logger.info("AIReplyHandler: getResponse", colorize(result))
+		return result
 	}
 
 	async getAIReply(payload) {
@@ -57,8 +85,11 @@ export class AIReplyHandler {
 			},
 		]
 		payloadText.push(...payload)
-		logger.info("AIReplyHandler: getAIReply", colorize(payloadText))
-		const parsedMessage = await this.parseMessage(payloadText)
+		return this.getRawReply(payloadText)
+	}
+	async getRawReply(payload) {
+		logger.info("AIReplyHandler: Payload", colorize(payload))
+		const parsedMessage = await this.parseMessage(payload)
 
 		// 有返回了response,不需要提交给 ai 处理, 则直接返回
 		if (parsedMessage.response) {
@@ -66,6 +97,6 @@ export class AIReplyHandler {
 		}
 
 		// 需要 ai 处理消息
-		return await this.getResponse(parsedMessage)
+		return this.getResponse(parsedMessage)
 	}
 }

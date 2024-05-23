@@ -1,158 +1,197 @@
-import GroqClient from "groq-sdk"
+import OpenAI from "openai"
 import dotenv from "dotenv"
-const env = dotenv.config().parsed // 环境参数
+import logger from "../common/logger.js"
+dotenv.config()
+import { wxclient } from "../common/wxmessage.js"
+async function query_chatlog(query) {
+	console.log("query_chatlog is called with", query)
+	return "[错误]"
+}
+async function wechat_sendmessage(arg) {
+	const { message, contactName } = arg
+	console.log("wechat_sendmessage is called with", message, contactName)
 
-const client = new GroqClient({
-	apiKey: env.GROQ_API_KEY,
-})
-
-const MODEL = "llama3-70b-8192"
-
-// 模拟的获取 NBA 比赛得分的函数
-async function get_game_score(team_name) {
-	let response
-	if (team_name.toLowerCase().includes("warriors")) {
-		response = {
-			game_id: "401585601",
-			status: "Final",
-			home_team: "Los Angeles Lakers",
-			home_team_score: 121,
-			away_team: "Golden State Warriors",
-			away_team_score: 128,
+	wxclient.start()
+	try {
+		const contactId = wxclient
+			.getContacts()
+			.find((item) => item.remark === contactName || item.name === contactName).id
+		logger.debug("contactId", contactId)
+		if (contactId) {
+			wxclient.sendTxt(message, contactId)
+			return "消息已经发送给 " + contactName + ", 你可以在微信里看到。"
+		} else {
+			return "没有找到联系人 " + contactName
 		}
-	} else if (team_name.toLowerCase().includes("lakers")) {
-		response = {
-			game_id: "401585601",
-			status: "Final",
-			home_team: "Los Angeles Lakers",
-			home_team_score: 121,
-			away_team: "Golden State Warriors",
-			away_team_score: 128,
-		}
-	} else if (team_name.toLowerCase().includes("nuggets")) {
-		response = {
-			game_id: "401585577",
-			status: "Final",
-			home_team: "Miami Heat",
-			home_team_score: 88,
-			away_team: "Denver Nuggets",
-			away_team_score: 100,
-		}
-	} else if (team_name.toLowerCase().includes("heat")) {
-		response = {
-			game_id: "401585577",
-			status: "Final",
-			home_team: "Miami Heat",
-			home_team_score: 88,
-			away_team: "Denver Nuggets",
-			away_team_score: 100,
-		}
-	} else {
-		response = { team_name: team_name, score: "unknown" }
+	} finally {
+		wxclient.stop()
 	}
-	return JSON.stringify(response)
 }
 
+export const tools = [
+	{
+		type: "function",
+		function: {
+			name: "query_chatlog",
+			description: "关于宠物的聊天记录",
+			parameters: {
+				type: "object",
+				properties: {
+					event: {
+						type: "string",
+						description: "事件名称例如: 买房, 买车, 结婚, 爱好,纪念日, 生日或者宠物的名字",
+					},
+				},
+				required: ["event"],
+			},
+		},
+	},
+	{
+		type: "function",
+		function: {
+			name: "wechat_sendmessage",
+			description: "发送微信消息",
+			parameters: {
+				type: "object",
+				properties: {
+					message: {
+						type: "string",
+						description: "消息内容",
+					},
+					contactName: {
+						type: "string",
+						description: "联系人名字",
+					},
+				},
+				required: ["message", "contactName"],
+			},
+		},
+	},
+]
+
 // 运行对话
-async function runConversation(user_prompt) {
-	const messages = [
-		{
-			role: "system",
-			content:
-				"你是一个调用 LLM 的函数，它使用从 get_game_score 函数提取的数据来回答关于 NBA 比赛得分的问题。在你的回答中包含球队和对手的信息。 用中文回复所有问题.",
-		},
-		{
-			role: "user",
-			content: user_prompt,
-		},
-	]
-	const tools = [
-		{
-			type: "function",
-			function: {
-				name: "get_game_score",
-				description: "获取一个指定的 NBA 球队的分数",
-				parameters: {
-					type: "object",
-					properties: {
-						team_name: {
-							type: "string",
-							description: "NBA 球队名称(比如金州勇士队)",
-						},
-					},
-					required: ["team_name"],
-				},
-			},
-		},
-		{
-			type: "function",
-			function: {
-				name: "",
-				description: "Get the score for a given NBA game",
-				parameters: {
-					type: "object",
-					properties: {
-						team_name: {
-							type: "string",
-							description: "The name of the NBA team (e.g. 'Golden State Warriors')",
-						},
-					},
-					required: ["team_name"],
-				},
-			},
-		},
-	]
+class ToolCallRequest {
+	constructor(openai, model, tools, availableFunctions) {
+		this.openai = openai
+		this.model = model
+		this.tools = tools
+		this.availableFunctions = availableFunctions
+	}
 
-	const response = await client.chat.completions.create({
-		model: MODEL,
-		messages: messages,
-		tools: tools,
-		tool_choice: "auto",
-		max_tokens: 4096,
-	})
+	async queryWithTools() {
+		const response = await this.openai.chat.completions.create({
+			model: this.model,
+			messages: this.payload,
+			tools: tools,
+			tool_choice: "auto",
+			max_tokens: 4096,
+		})
+		//
+		console.log("first response", response.choices[0].message)
+		return response.choices[0].message
+	}
 
-	const responseMessage = response.choices[0].message
-	const toolCalls = responseMessage.tool_calls
-	if (toolCalls) {
-		const availableFunctions = {
-			get_game_score: get_game_score,
+	async getResponse(payload) {
+		this.payload = payload
+		const toolsCheckMessage = await this.queryWithTools()
+		try {
+			if (toolsCheckMessage.tool_calls) {
+				return await this.processToolCalls(toolsCheckMessage)
+			} else {
+				throw new Error("No tool calls found in the response")
+			}
+		} catch (error) {
+			return undefined
 		}
-		messages.push(responseMessage)
+	}
+
+	/**
+	 * 异步处理工具调用
+	 *
+	 * @param toolsCheckMessage 工具检查消息
+	 * @returns 返回二次响应中的具体内容
+	 * @throws 当工具调用返回错误时，抛出错误
+	 */
+	async processToolCalls(toolsCheckMessage) {
+		// 将响应消息添加到payload数组中
+
+		const payload = [...this.payload]
+		payload.push(toolsCheckMessage)
+
+		// 遍历所有的工具调用, 并获取工具调用的响应
+		const toolcallResponse = await this.getToolCallsResponse(toolsCheckMessage.tool_calls)
+		logger.debug("toolcallResponse", toolcallResponse)
+
+		try {
+			for (toolCall of toolcallResponse) {
+				if (toolCall.content === "[错误]") {
+					throw new Error("Tool call returned an error")
+				}
+				payload.push(toolCall)
+			}
+
+			// 打印当前的payload数组
+			logger.info("toolcall payload", payload)
+
+			// 把 toolcall 的响应发给模型,再次调用模型响应
+			const secondResponse = await this.openai.chat.completions.create({
+				model: this.model,
+				messages: payload,
+			})
+
+			// 从二次响应中获取具体的内容，并返回
+			const response = secondResponse.choices[0].message.content
+			return response
+		} catch (error) {
+			// 处理错误，可以在这里进行日志记录等操作
+			throw error // 可选：重新抛出错误，以便上层调用者能够捕获到
+		}
+	}
+
+	async getToolCallsResponse(toolCalls) {
+		const payload = []
 		for (const toolCall of toolCalls) {
+			// 获取工具调用的函数名
 			const functionName = toolCall.function.name
-			const functionToCall = availableFunctions[functionName]
+
+			// 从可用函数列表中获取对应的函数
+			const functionToCall = this.availableFunctions[functionName]
+
+			// 解析工具调用的函数参数（JSON格式）
 			const functionArgs = JSON.parse(toolCall.function.arguments)
-			const functionResponse = await functionToCall(functionArgs.team_name)
-			messages.push({
+
+			// 打印函数参数
+			console.log(functionArgs)
+
+			// 调用对应的函数，并等待其响应
+			const functionResponse = await functionToCall(functionArgs)
+
+			// 将工具调用的响应添加到payload数组中，包括工具调用ID、角色、函数名以及函数响应内容
+			payload.push({
 				tool_call_id: toolCall.id,
 				role: "tool",
 				name: functionName,
 				content: functionResponse,
 			})
 		}
-		const secondResponse = await client.chat.completions.create({
-			model: MODEL,
-			messages: messages,
-		})
-		const engResponse = secondResponse.choices[0].message.content
-		const finalResponse = await client.chat.completions.create({
-			model: MODEL,
-			messages: [
-				{
-					role: "user",
-					content: `把这句话翻译成中文: ${engResponse}`,
-				},
-			],
-		})
-		return finalResponse.choices[0].message.content
+		return payload
 	}
 }
 
-const userPrompt = "勇士队的分数是多少？"
-runConversation(userPrompt)
-	.then((response) => {
-		console.log(response)
-	})
-	.catch((error) => {
-		console.error(error)
-	})
+const openai = new OpenAI({
+	apiKey: process.env.OPENAI_API_KEY,
+	baseURL: process.env.OPENAI_ENDPOINT,
+})
+const availableFunctions = {
+	query_chatlog: query_chatlog,
+	wechat_sendmessage: wechat_sendmessage,
+}
+export const toolCall = new ToolCallRequest(openai, process.env.OPENAI_MODEL, tools, availableFunctions)
+// toolCall
+// 	.getResponse()
+// 	.then((response) => {
+// 		console.log(response)
+// 	})
+// 	.catch((error) => {
+// 		console.error(error)
+// 	})

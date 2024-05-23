@@ -1,5 +1,11 @@
 import { execSync } from "child_process"
 import { imageUnderstanding } from "../xunfei/imageunderstanding.js"
+import pkg from "@wcferry/core"
+const { Message, Wcferry } = pkg
+import logger from "./logger.js"
+
+export const wxclient = new Wcferry({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })
+
 function extractPathFromMessage(message) {
 	const path = message.content.match(/\{(.*)\}/)[1]
 	return path

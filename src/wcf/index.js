@@ -1,10 +1,10 @@
-import pkg from "@wcferry/core"
-const { Message, Wcferry } = pkg
+import { wxclient } from "../common/wxmessage.js"
 import { defaultMessage } from "./sendMessage.js"
-import logger from "../common/index.js"
+import logger from "../common/logger.js"
 import chalk from "chalk"
 import dotenv from "dotenv"
 import Summarizer from "../common/summarize.js"
+import { getServe } from "./serve.js"
 
 const env = dotenv.config().parsed // 环境参数
 
@@ -13,7 +13,7 @@ let serviceType = "Groq"
 let off = () => {}
 
 async function startBot() {
-	const client = new Wcferry({ host: env.WCF_HOST, port: parseInt(env.WCF_PORT) })
+	const client = wxclient
 	client.start()
 	const isLogin = client.isLogin()
 
@@ -27,15 +27,18 @@ async function startBot() {
 	// Send an initial message
 
 	logger.info("Bot is running...")
-
+	const replyAI = getServe(serviceType)
+	replyAI([{ role: "user", content: "你好, 今天天气如何？" }]).then((res) => {
+		logger.info("reply from ai", res.response)
+	})
 	// Keep the bot running indefinitely
 	let tick = 0
 	while (client.msgReceiving) {
 		await new Promise((resolve) => setTimeout(resolve, 1000)) // Wait for 1 second
 		// run summarize every 10 minutes
 		if (tick % 600 === 0) {
-			logger.info("运行总结")
-			new Summarizer().summarizeContentByTopicId()
+			// new Summarizer().summarizeContentByTopicId()
+			// logger.info("运行总结")
 		}
 		tick += 1
 	}
@@ -117,4 +120,5 @@ function init() {
 			logger.error(error, "🚀error:")
 		})
 }
+
 init()
