@@ -4,6 +4,7 @@ import { getVoiceRecognitionText, getImageRecognitionText } from "./wxmessage.js
 import logger from "./logger.js"
 import { colorize } from "json-colorizer"
 import OpenAI from "openai"
+import { toolCall } from "./toolcall.js"
 
 export class AIReplyHandler {
 	constructor(env = process.env) {
@@ -55,23 +56,24 @@ export class AIReplyHandler {
 
 	async getResponse(parsedMessage) {
 		const { orignalMessage, convertedMessage, payload } = parsedMessage
-
-		const chatCompletion = await this.openai.chat.completions.create({
-			messages: payload,
-			model: this.env.OPENAI_MODEL,
-			temperature: 1,
-			max_tokens: 1024,
-			top_p: 0.8,
-			stream: false,
-			stop: null,
-		})
-
+		let finalResponse = await toolCall.getResponse(payload)
+		if (!finalResponse) {
+			const chatCompletion = await this.openai.chat.completions.create({
+				messages: payload,
+				model: this.env.OPENAI_MODEL,
+				temperature: 1,
+				max_tokens: 1024,
+				top_p: 0.8,
+				stream: false,
+				stop: null,
+			})
+			finalResponse = chatCompletion.choices[0]?.message?.content || "对不起，我无法理解你的意思，请再试一次"
+		}
 		// Print the completion returned by the LLM.
-		const responseText = chatCompletion.choices[0]?.message?.content || ""
 		const result = {
 			orignalMessage: orignalMessage,
 			convertedMessage: convertedMessage,
-			response: responseText,
+			response: finalResponse,
 		}
 		logger.info("AIReplyHandler: getResponse", colorize(result))
 		return result

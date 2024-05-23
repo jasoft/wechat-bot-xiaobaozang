@@ -1,8 +1,8 @@
 import OpenAI from "openai"
 import dotenv from "dotenv"
-import logger from "../common/logger.js"
+import logger from "./logger.js"
 dotenv.config()
-import { wxclient } from "../common/wxmessage.js"
+import { wxclient } from "./wxmessage.js"
 async function query_chatlog(query) {
 	console.log("query_chatlog is called with", query)
 	return "[错误]"
@@ -11,11 +11,10 @@ async function wechat_sendmessage(arg) {
 	const { message, contactName } = arg
 	console.log("wechat_sendmessage is called with", message, contactName)
 
-	wxclient.start()
 	try {
 		const contactId = wxclient
 			.getContacts()
-			.find((item) => item.remark === contactName || item.name === contactName).id
+			.find((item) => item.remark === contactName || item.name === contactName)?.wxid
 		logger.debug("contactId", contactId)
 		if (contactId) {
 			wxclient.sendTxt(message, contactId)
@@ -24,7 +23,6 @@ async function wechat_sendmessage(arg) {
 			return "没有找到联系人 " + contactName
 		}
 	} finally {
-		wxclient.stop()
 	}
 }
 
@@ -98,10 +96,12 @@ class ToolCallRequest {
 			if (toolsCheckMessage.tool_calls) {
 				return await this.processToolCalls(toolsCheckMessage)
 			} else {
-				throw new Error("No tool calls found in the response")
+				logger.info("No tool calls found, return null")
+				return null
 			}
 		} catch (error) {
-			return undefined
+			logger.error("Error in getResponse", error)
+			return null
 		}
 	}
 
@@ -123,9 +123,9 @@ class ToolCallRequest {
 		logger.debug("toolcallResponse", toolcallResponse)
 
 		try {
-			for (toolCall of toolcallResponse) {
-				if (toolCall.content === "[错误]") {
-					throw new Error("Tool call returned an error")
+			for (let toolCall of toolcallResponse) {
+				if (toolCall.content.startsWith("[错误]")) {
+					throw new Error("Tool call returned an error:" + toolCall.content)
 				}
 				payload.push(toolCall)
 			}
@@ -187,11 +187,7 @@ const availableFunctions = {
 	wechat_sendmessage: wechat_sendmessage,
 }
 export const toolCall = new ToolCallRequest(openai, process.env.OPENAI_MODEL, tools, availableFunctions)
-// toolCall
-// 	.getResponse()
-// 	.then((response) => {
-// 		console.log(response)
-// 	})
-// 	.catch((error) => {
-// 		console.error(error)
-// 	})
+// const res = await toolCall.getResponse([{ role: "user", content: "发消息给爸爸,你怎么还不来" }])
+
+// if (res) console.log(res)
+// else console.log("no response")

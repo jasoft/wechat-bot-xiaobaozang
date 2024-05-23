@@ -5,6 +5,7 @@ const { Message, Wcferry } = pkg
 import logger from "./logger.js"
 
 export const wxclient = new Wcferry({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })
+wxclient.start()
 
 function extractPathFromMessage(message) {
 	const path = message.content.match(/\{(.*)\}/)[1]
