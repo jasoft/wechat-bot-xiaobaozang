@@ -29,4 +29,4 @@ export const keywords = [
 
 export const contextLimit = 10 // 上下文对话的长度
 
-export const tokensLimit = 512 // 消息长度限制
+export const tokensLimit = 1024 // 消息长度限制

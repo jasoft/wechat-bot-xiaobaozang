@@ -20,7 +20,7 @@ async function wechat_sendmessage(arg) {
 			wxclient.sendTxt(message, contactId)
 			return "消息已经发送给 " + contactName + ", 你可以在微信里看到。"
 		} else {
-			return "没有找到联系人 " + contactName
+			return "[错误]没有找到联系人 " + contactName
 		}
 	} finally {
 	}
@@ -48,7 +48,7 @@ export const tools = [
 		type: "function",
 		function: {
 			name: "wechat_sendmessage",
-			description: "发送微信消息",
+			description: "发送或转发消息给某人或者群组",
 			parameters: {
 				type: "object",
 				properties: {
@@ -82,7 +82,8 @@ class ToolCallRequest {
 			messages: this.payload,
 			tools: tools,
 			tool_choice: "auto",
-			max_tokens: 4096,
+			temperature: 1,
+			max_tokens: 1024,
 		})
 		//
 		console.log("first response", response.choices[0].message)
@@ -94,6 +95,7 @@ class ToolCallRequest {
 		const toolsCheckMessage = await this.queryWithTools()
 		try {
 			if (toolsCheckMessage.tool_calls) {
+				//this may raise exception if toolcall is not desired or can not supply correct answer
 				return await this.processToolCalls(toolsCheckMessage)
 			} else {
 				logger.info("No tool calls found, return null")

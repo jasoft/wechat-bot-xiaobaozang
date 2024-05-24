@@ -5,6 +5,7 @@ import chalk from "chalk"
 import dotenv from "dotenv"
 import Summarizer from "../common/summarize.js"
 import { getServe } from "./serve.js"
+import { colorize } from "json-colorizer"
 
 const env = dotenv.config().parsed // 环境参数
 
@@ -19,6 +20,7 @@ async function startBot() {
 
 	// Start receiving messages
 	off = client.on((msg) => {
+		logger.info("Received message:", colorize(msg))
 		defaultMessage(msg, client, serviceType)
 	})
 

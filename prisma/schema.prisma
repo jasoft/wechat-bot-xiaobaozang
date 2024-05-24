@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-    provider = "sqlite"
+    provider = "mysql"
     url      = env("DATABASE_URL")
 }
 
@@ -18,7 +18,7 @@ model Message {
     roomName   String?
     name       String
     alias      String
-    content    String
+    content    String   @db.VarChar(4096)
     summarized Boolean  @default(false)
     createdAt  DateTime @default(now())
 }

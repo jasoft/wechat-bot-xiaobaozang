@@ -127,7 +127,7 @@ class MessageHandler {
 		const messages = await this.prepareMessagesForPrompt(chatId, isRoom)
 		if (messages.length === 0) return
 
-		const question = await this.buildPrompt(messages)
+		const question = await this.buildPayload(messages)
 		const response = await this.getReply(question)
 		logger.debug(isRoom ? "room response" : "contact response", colorize(response))
 		let sayText = response.response
@@ -152,10 +152,12 @@ class MessageHandler {
 		return chatHistory
 	}
 
-	async buildPrompt(context) {
+	async buildPayload(context) {
 		const contexts = context.map((message) => {
 			if (message.role === "user") {
-				return { role: message.role, content: `我是${message.alias},${message.content}` }
+				return this.isRoom
+					? { role: message.role, content: `我是${message.alias},以下是我的回复:${message.content}` }
+					: { role: message.role, content: `${message.content}` }
 			} else if (message.role === "assistant") {
 				return { role: message.role, content: `${message.content}` }
 			} else if (message.role === "summary") {

@@ -56,27 +56,42 @@ export class AIReplyHandler {
 
 	async getResponse(parsedMessage) {
 		const { orignalMessage, convertedMessage, payload } = parsedMessage
-		let finalResponse = await toolCall.getResponse(payload)
-		if (!finalResponse) {
-			const chatCompletion = await this.openai.chat.completions.create({
-				messages: payload,
-				model: this.env.OPENAI_MODEL,
-				temperature: 1,
-				max_tokens: 1024,
-				top_p: 0.8,
-				stream: false,
-				stop: null,
-			})
-			finalResponse = chatCompletion.choices[0]?.message?.content || "对不起，我无法理解你的意思，请再试一次"
+		try {
+			let finalResponse = await toolCall.getResponse([
+				{
+					role: "system",
+					content: "你是一个智能助手,在遇到相关问题时可以调用toolcall 来回答, 否则不需要调用. ",
+				},
+				payload.at(-1),
+			])
+			// 如果没有返回toolcall结果,则调用openai进行正常对话
+			if (!finalResponse) {
+				const chatCompletion = await this.openai.chat.completions.create({
+					messages: payload,
+					model: this.env.OPENAI_MODEL,
+					temperature: 1,
+					max_tokens: 1024,
+					stream: false,
+					stop: null,
+				})
+				finalResponse = chatCompletion.choices[0]?.message?.content || "对不起，我无法理解你的意思，请再试一次"
+			}
+			// Print the completion returned by the LLM.
+			const result = {
+				orignalMessage: orignalMessage,
+				convertedMessage: convertedMessage,
+				response: finalResponse,
+			}
+			logger.info("AIReplyHandler: getResponse", colorize(result))
+			return result
+		} catch (error) {
+			logger.error("Error in getResponse", error)
+			return {
+				orignalMessage: orignalMessage,
+				convertedMessage: convertedMessage,
+				response: "哎呀,我好像出了点问题,让我修复下,待会儿再和我聊天吧",
+			}
 		}
-		// Print the completion returned by the LLM.
-		const result = {
-			orignalMessage: orignalMessage,
-			convertedMessage: convertedMessage,
-			response: finalResponse,
-		}
-		logger.info("AIReplyHandler: getResponse", colorize(result))
-		return result
 	}
 
 	async getAIReply(payload) {

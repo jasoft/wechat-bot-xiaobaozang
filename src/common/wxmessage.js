@@ -1,5 +1,6 @@
 import { execSync } from "child_process"
 import { imageUnderstanding } from "../xunfei/imageunderstanding.js"
+import { recognizeAudio } from "../xunfei/voicerecog.js"
 import pkg from "@wcferry/core"
 const { Message, Wcferry } = pkg
 import logger from "./logger.js"
