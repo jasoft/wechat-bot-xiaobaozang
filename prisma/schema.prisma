@@ -22,3 +22,13 @@ model Message {
     summarized Boolean  @default(false)
     createdAt  DateTime @default(now())
 }
+
+// 针对不同的topic，可以有不同的角色
+model Character {
+    id          Int      @id @default(autoincrement())
+    name        String
+    alias       String
+    topicId     String   @unique
+    description String   @db.VarChar(4096)
+    createdAt   DateTime @default(now())
+}

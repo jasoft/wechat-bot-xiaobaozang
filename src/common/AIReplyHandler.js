@@ -57,10 +57,10 @@ export class AIReplyHandler {
 	async getResponse(parsedMessage) {
 		const { orignalMessage, convertedMessage, payload } = parsedMessage
 		try {
-			let finalResponse = await toolCall.getResponse([
+			let finalResponse = await toolCall.getResponse(this.env.TOPIC_ID, [
 				{
 					role: "system",
-					content: "你是一个智能助手,在遇到相关问题时可以调用toolcall 来回答, 否则不需要调用. ",
+					content: this.env.SYSTEM_PROMPT,
 				},
 				payload.at(-1),
 			])

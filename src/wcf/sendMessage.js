@@ -1,3 +1,4 @@
+"use strict"
 import { botName, roomWhiteList, aliasWhiteList, keywords, contextLimit } from "../../config.js"
 import { getServe } from "./serve.js"
 import path from "path"
@@ -8,6 +9,7 @@ import pkg from "@wcferry/core"
 const { Message, Wcferry } = pkg
 const prisma = new PrismaClient()
 import { formatDistanceToNow } from "date-fns"
+import { randomInt } from "crypto"
 
 class MessageHandler {
 	/**
@@ -116,6 +118,23 @@ class MessageHandler {
 		}
 	}
 
+	async getSysPrompt(topicId) {
+		const defaultSysPrompt = process.env.SYSTEM_PROMPT || "你好, 我是一个智能助手, 有什么可以帮助你的吗？"
+		try {
+			const sysPrompt = await prisma.character.findFirst({
+				where: {
+					topicId: topicId,
+				},
+			})
+
+			// 使用可选链操作符安全地访问 sysPrompt.description
+			return sysPrompt?.description || defaultSysPrompt
+		} catch (error) {
+			// 错误处理逻辑，可以记录错误日志或返回默认值
+			console.error("获取系统提示信息时发生错误:", error)
+			return defaultSysPrompt
+		}
+	}
 	/**
 	 * 处理聊天消息
 	 *
@@ -128,7 +147,7 @@ class MessageHandler {
 		if (messages.length === 0) return
 
 		const question = await this.buildPayload(messages)
-		const response = await this.getReply(question)
+		const response = await this.getReply(chatId, await this.getSysPrompt(chatId), question)
 		logger.debug(isRoom ? "room response" : "contact response", colorize(response))
 		let sayText = response.response
 
@@ -154,10 +173,13 @@ class MessageHandler {
 
 	async buildPayload(context) {
 		const contexts = context.map((message) => {
+			const saySelfMessage = {
+				role: message.role,
+				content: `我是${message.alias},以下是我的回复:${message.content}`,
+			}
 			if (message.role === "user") {
-				return this.isRoom
-					? { role: message.role, content: `我是${message.alias},以下是我的回复:${message.content}` }
-					: { role: message.role, content: `${message.content}` }
+				if (this.isRoom || (!this.isRoom && randomInt(5) == 0)) return saySelfMessage
+				return { role: message.role, content: `${message.content}` }
 			} else if (message.role === "assistant") {
 				return { role: message.role, content: `${message.content}` }
 			} else if (message.role === "summary") {
@@ -194,6 +216,7 @@ class MessageHandler {
 			logger.warn("Ignoring message with HTML content", content)
 			return
 		}
+
 		logger.info("Saving message to database", colorize({ role, content, name, alias }))
 		await prisma.message.create({
 			data: {

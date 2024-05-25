@@ -1,5 +1,9 @@
 import { AIReplyHandler } from "../common/AIReplyHandler.js"
-const openaiReplyHandler = new AIReplyHandler()
-export async function getOpenAiReply(inputVal) {
-	return openaiReplyHandler.getAIReply(inputVal)
+
+export async function getOpenAiReply(topicId, systemPrompt, payload) {
+	const env = { ...process.env }
+	env.SYSTEM_PROMPT = systemPrompt
+	env.TOPIC_ID = topicId
+	const openaiReplyHandler = new AIReplyHandler(env)
+	return openaiReplyHandler.getAIReply(payload)
 }

@@ -3,26 +3,39 @@ import dotenv from "dotenv"
 import logger from "./logger.js"
 dotenv.config()
 import { wxclient } from "./wxmessage.js"
-async function query_chatlog(query) {
-	console.log("query_chatlog is called with", query)
+import { colorize } from "json-colorizer"
+import { searchChatLog } from "./search.js"
+async function query_chatlog(topicId, query) {
+	logger.debug("query_chatlog is called with", query)
+	const { event } = query
+	const result = await searchChatLog(topicId, event)
+	if (result.hits.length > 0) {
+		const messages = result.hits.map((item) => {
+			return `${item.alias}说: ${item.content} `
+		})
+		return messages.join("\n")
+	}
 	return "[错误]"
 }
-async function wechat_sendmessage(arg) {
+async function wechat_sendmessage(topicId, arg) {
 	const { message, contactName } = arg
-	console.log("wechat_sendmessage is called with", message, contactName)
+	if (!message || !contactName) {
+		return "[错误]参数错误"
+	}
+	logger.debug("wechat_sendmessage is called with", message, contactName)
 
 	try {
 		const contactId = wxclient
 			.getContacts()
 			.find((item) => item.remark === contactName || item.name === contactName)?.wxid
-		logger.debug("contactId", contactId)
 		if (contactId) {
-			wxclient.sendTxt(message, contactId)
-			return "消息已经发送给 " + contactName + ", 你可以在微信里看到。"
-		} else {
-			return "[错误]没有找到联系人 " + contactName
+			logger.debug("contactId", contactId)
+			if (wxclient.sendTxt(message, contactId) == 0)
+				return `消息"${message}"已经发送给"${contactName}", 你可以在微信里看到。`
 		}
-	} finally {
+		return "[错误]没有找到联系人: " + contactName
+	} catch (error) {
+		return "[错误]没有找到联系人: " + contactName + " " + error
 	}
 }
 
@@ -31,7 +44,7 @@ export const tools = [
 		type: "function",
 		function: {
 			name: "query_chatlog",
-			description: "关于宠物的聊天记录",
+			description: "查询聊天记录中的特定事件",
 			parameters: {
 				type: "object",
 				properties: {
@@ -76,7 +89,7 @@ class ToolCallRequest {
 		this.availableFunctions = availableFunctions
 	}
 
-	async queryWithTools() {
+	async shouldWeUseTools() {
 		const response = await this.openai.chat.completions.create({
 			model: this.model,
 			messages: this.payload,
@@ -86,14 +99,15 @@ class ToolCallRequest {
 			max_tokens: 1024,
 		})
 		//
-		console.log("first response", response.choices[0].message)
+		logger.info("检查 toolcall 请求返回: ", response.choices[0].message)
 		return response.choices[0].message
 	}
 
-	async getResponse(payload) {
+	async getResponse(topicId, payload) {
 		this.payload = payload
-		const toolsCheckMessage = await this.queryWithTools()
+		this.topicId = topicId
 		try {
+			const toolsCheckMessage = await this.shouldWeUseTools()
 			if (toolsCheckMessage.tool_calls) {
 				//this may raise exception if toolcall is not desired or can not supply correct answer
 				return await this.processToolCalls(toolsCheckMessage)
@@ -121,10 +135,10 @@ class ToolCallRequest {
 		payload.push(toolsCheckMessage)
 
 		// 遍历所有的工具调用, 并获取工具调用的响应
-		const toolcallResponse = await this.getToolCallsResponse(toolsCheckMessage.tool_calls)
-		logger.debug("toolcallResponse", toolcallResponse)
 
 		try {
+			const toolcallResponse = await this.getToolCallsResponse(toolsCheckMessage.tool_calls)
+			logger.debug("toolcallResponse", toolcallResponse)
 			for (let toolCall of toolcallResponse) {
 				if (toolCall.content.startsWith("[错误]")) {
 					throw new Error("Tool call returned an error:" + toolCall.content)
@@ -133,7 +147,7 @@ class ToolCallRequest {
 			}
 
 			// 打印当前的payload数组
-			logger.info("toolcall payload", payload)
+			logger.info("toolcall payload", colorize(payload))
 
 			// 把 toolcall 的响应发给模型,再次调用模型响应
 			const secondResponse = await this.openai.chat.completions.create({
@@ -159,6 +173,9 @@ class ToolCallRequest {
 			// 从可用函数列表中获取对应的函数
 			const functionToCall = this.availableFunctions[functionName]
 
+			if (!functionToCall) {
+				throw new Error("Function not found: " + functionName)
+			}
 			// 解析工具调用的函数参数（JSON格式）
 			const functionArgs = JSON.parse(toolCall.function.arguments)
 
@@ -166,7 +183,7 @@ class ToolCallRequest {
 			console.log(functionArgs)
 
 			// 调用对应的函数，并等待其响应
-			const functionResponse = await functionToCall(functionArgs)
+			const functionResponse = await functionToCall(this.topicId, functionArgs)
 
 			// 将工具调用的响应添加到payload数组中，包括工具调用ID、角色、函数名以及函数响应内容
 			payload.push({

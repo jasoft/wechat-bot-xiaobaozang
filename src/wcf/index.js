@@ -25,14 +25,19 @@ async function startBot() {
 	})
 
 	logger.info("System Status:", { isLogin: isLogin, recving: client.msgReceiving })
-
+	client.sendFile(
+		"c:/Users/soj/Projects/wechat-bot-xiaobaozang/public/attachments/8936854758638919845.mp3",
+		"filehelper"
+	)
 	// Send an initial message
 
 	logger.info("Bot is running...")
 	const replyAI = getServe(serviceType)
-	replyAI([{ role: "user", content: "你好, 今天天气如何？" }]).then((res) => {
-		logger.info("reply from ai", res.response)
-	})
+	replyAI("filehelper", "你可以预报天气, 地点在江苏南京", [{ role: "user", content: "你好, 今天天气如何？" }]).then(
+		(res) => {
+			logger.info("reply from ai", res.response)
+		}
+	)
 	// Keep the bot running indefinitely
 	let tick = 0
 	while (client.msgReceiving) {
