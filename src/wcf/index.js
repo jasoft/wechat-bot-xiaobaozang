@@ -1,12 +1,11 @@
 import { wxclient } from "../common/wxmessage.js"
 import { defaultMessage } from "./sendMessage.js"
 import logger from "../common/logger.js"
-import chalk from "chalk"
 import dotenv from "dotenv"
 import Summarizer from "../common/summarize.js"
 import { getServe } from "./serve.js"
 import { colorize } from "json-colorizer"
-
+import { startCron } from "../common/cron/crontab.js"
 const env = dotenv.config().parsed // 环境参数
 
 let serviceType = "Groq"
@@ -17,7 +16,7 @@ async function startBot() {
 	const client = wxclient
 	client.start()
 	const isLogin = client.isLogin()
-
+	startCron()
 	// Start receiving messages
 	off = client.on((msg) => {
 		logger.info("Received message:", colorize(msg))
@@ -25,19 +24,14 @@ async function startBot() {
 	})
 
 	logger.info("System Status:", { isLogin: isLogin, recving: client.msgReceiving })
-	client.sendFile(
-		"c:/Users/soj/Projects/wechat-bot-xiaobaozang/public/attachments/8936854758638919845.mp3",
-		"filehelper"
-	)
+
 	// Send an initial message
 
 	logger.info("Bot is running...")
 	const replyAI = getServe(serviceType)
-	replyAI("filehelper", "你可以预报天气, 地点在江苏南京", [{ role: "user", content: "你好, 今天天气如何？" }]).then(
-		(res) => {
-			logger.info("reply from ai", res.response)
-		}
-	)
+	replyAI("filehelper", [{ role: "user", content: "你好, 今天天气如何？" }]).then((res) => {
+		logger.info("reply from ai", res.response)
+	})
 	// Keep the bot running indefinitely
 	let tick = 0
 	while (client.msgReceiving) {

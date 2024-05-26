@@ -112,8 +112,8 @@ class ToolCallRequest {
 				//this may raise exception if toolcall is not desired or can not supply correct answer
 				return await this.processToolCalls(toolsCheckMessage)
 			} else {
-				logger.info("No tool calls found, return null")
-				return null
+				logger.info("No tool calls found, return default response")
+				return toolsCheckMessage.content
 			}
 		} catch (error) {
 			logger.error("Error in getResponse", error)
