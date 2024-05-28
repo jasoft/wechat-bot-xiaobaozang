@@ -25,14 +25,8 @@ async function wechat_sendmessage(topicId, arg) {
 	logger.debug("wechat_sendmessage is called with", message, contactName)
 
 	try {
-		const contactId = wxclient
-			.getContacts()
-			.find((item) => item.remark === contactName || item.name === contactName)?.wxid
-		if (contactId) {
-			logger.debug("contactId", contactId)
-			if (wxclient.sendTxt(message, contactId) == 0)
-				return `消息"${message}"已经发送给"${contactName}", 你可以在微信里看到。`
-		}
+		if (wxclient.sendTxtByName(message, contactName) == 0)
+			return `消息"${message}"已经发送给"${contactName}", 你可以在微信里看到。`
 		return "[错误]没有找到联系人: " + contactName
 	} catch (error) {
 		return "[错误]没有找到联系人: " + contactName + " " + error

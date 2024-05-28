@@ -6,6 +6,8 @@ import Summarizer from "../common/summarize.js"
 import { getServe } from "./serve.js"
 import { colorize } from "json-colorizer"
 import { startCron } from "../common/cron/crontab.js"
+import { startApiServer } from "../common/apiserver.js"
+
 const env = dotenv.config().parsed // 环境参数
 
 let serviceType = "Groq"
@@ -14,9 +16,9 @@ let off = () => {}
 
 async function startBot() {
 	const client = wxclient
-	client.start()
 	const isLogin = client.isLogin()
 	startCron()
+	startApiServer()
 	// Start receiving messages
 	off = client.on((msg) => {
 		logger.info("Received message:", colorize(msg))

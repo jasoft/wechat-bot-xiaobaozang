@@ -1,0 +1,62 @@
+{
+	"openapi": "3.0.0",
+	"info": {
+		"title": "Wechat API",
+		"version": "1.0.0",
+		"description": "API for managing wechat"
+	},
+	"paths": {
+		"/message": {
+			"get": {
+				"summary": "shows description",
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"example": {
+									"code": 200,
+									"message": "how to use this api"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"summary": "Send message",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"message": {
+										"type": "string",
+										"description": "Message to be sent"
+									},
+									"recipient": {
+										"type": "string",
+										"description": "Recipient of the message"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Successful response",
+						"content": {
+							"application/json": {
+								"example": {
+									"message": "User created successfully"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

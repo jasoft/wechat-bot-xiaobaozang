@@ -5,7 +5,6 @@ export class CozeBot extends OpenAIBot {
 	// Your code here
 	constructor(env = process.env) {
 		super()
-		console.log(this, env)
 		this.env = env
 		this.topicId = env.TOPIC_ID
 	}

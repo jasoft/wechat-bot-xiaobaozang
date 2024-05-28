@@ -7,7 +7,27 @@ import { recognizeAudio } from "../xunfei/voicerecog.js"
 import { Wcferry } from "@wcferry/core"
 import logger from "./logger.js"
 
-export const wxclient = new Wcferry({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })
+class WcferryEx extends Wcferry {
+	constructor(options) {
+		super(options)
+	}
+
+	getContactId(receiver) {
+		const contactId = this.getContacts().find((item) => item.remark === receiver || item.name === receiver)?.wxid
+		if (contactId) {
+			logger.debug("WXMessage", `contactId for ${receiver}: ${contactId}`)
+		} else {
+			logger.error("WXMessage", `No contact found for ${receiver}`)
+		}
+		return contactId
+	}
+
+	async sendTxtByName(msg, receiver, aters) {
+		return this.sendTxt(msg, this.getContactId(receiver), aters)
+	}
+}
+
+export const wxclient = new WcferryEx({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })
 wxclient.start()
 
 function extractPathFromMessage(message) {
