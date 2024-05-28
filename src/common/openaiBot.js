@@ -6,17 +6,17 @@ import { colorize } from "json-colorizer"
 import OpenAI from "openai"
 import { toolCall } from "./toolcall.js"
 
-export class AIReplyHandler {
+export class OpenAIBot {
 	constructor(env = process.env) {
 		this.env = env
 		this.openai = new OpenAI({
 			apiKey: this.env.OPENAI_API_KEY,
-			baseURL: this.env.OPENAI_ENDPOINT,
+			baseURL: this.env.OPENAI_BASE_URL,
 		})
 		// This is the default and can be omitted}env.OPENAI_API_KEY)
 	}
 
-	async parseMessage(payloadText, parseMedia = true) {
+	async _parseMessage(payloadText, parseMedia = true) {
 		const lastUserMessage = payloadText.at(-1)
 		let result = {
 			orignalMessage: lastUserMessage.content,
@@ -106,7 +106,7 @@ export class AIReplyHandler {
 	}
 	async getRawReply(payload) {
 		logger.info("AIReplyHandler: Payload", colorize(payload))
-		const parsedMessage = await this.parseMessage(payload)
+		const parsedMessage = await this._parseMessage(payload)
 
 		// 有返回了response,不需要提交给 ai 处理, 则直接返回
 		if (parsedMessage.response) {

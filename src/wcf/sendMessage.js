@@ -5,12 +5,12 @@ import path from "path"
 import { PrismaClient } from "@prisma/client"
 import logger from "../common/logger.js"
 import { colorize } from "json-colorizer"
-import pkg from "@wcferry/core"
-const { Message, Wcferry } = pkg
+import { Message, Wcferry } from "@wcferry/core"
 const prisma = new PrismaClient()
 import { formatDistanceToNow } from "date-fns"
 import { randomInt } from "crypto"
 import { ChatTopic } from "../common/topic.js"
+import { downloadFile } from "../common/helpers.js"
 class MessageHandler {
 	/**
 	 * 构造函数
@@ -176,11 +176,15 @@ class MessageHandler {
 
 	async normalizeMessage() {
 		let normalizedMessage = this.content
-		const attachmentPath = path.join(process.cwd(), "public", "attachments")
+
+		const attachmentPath = path.join(process.env.WCF_ROOT, "public", "attachments")
+
 		try {
 			if (this.isVoice) {
 				logger.info("voice message", this.msg.id)
+
 				const fileName = await this.bot.getAudioMsg(this.msg.id, attachmentPath, 10)
+
 				normalizedMessage = `[语音消息]{${fileName}}`
 			}
 			if (this.isImage) {

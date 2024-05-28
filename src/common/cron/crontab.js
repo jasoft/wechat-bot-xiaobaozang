@@ -4,7 +4,7 @@ import logger from "../logger.js"
 
 // 每小时执行一次任务
 export async function startCron() {
-	cron.schedule("0 * * * *", () => {
+	cron.schedule("*/5 * * * *", () => {
 		logger.info("CRON", "同步聊天记录到Mellisearch")
 		syncChatLogs()
 	})

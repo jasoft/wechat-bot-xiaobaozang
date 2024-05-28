@@ -3,14 +3,11 @@
 	"version": "1.0.0",
 	"description": "",
 	"main": "index.js",
-	"type": "module",
 	"scripts": {
 		"start": "node ./index.js",
-		"dev": "nodemon --delay 1 -i WechatEveryDay.memory-card.json -w .env -w src --ext js,json,env  ./index.js",
-		"test": "jest",
-		"test-openai": "node ./src/openai/__test__.js",
-		"test-xunfei": "node ./src/xunfei/__test__.js",
-		"test-kimi": "node ./src/kimi/__test__.js"
+		"babel-node": "npx babel-node --presets=@babel/preset-env",
+		"dev": "nodemon --delay 1 -i WechatEveryDay.memory-card.json -w .env -w src --ext js,json,env  --exec npm run babel-node ./index.js",
+		"test": "jest"
 	},
 	"author": "soj",
 	"license": "ISC",
@@ -29,6 +26,7 @@
 		"groq-sdk": "^0.3.3",
 		"inquirer": "^9.2.16",
 		"json-colorizer": "^3.0.1",
+		"llamaindex": "^0.3.14",
 		"meilisearch": "^0.40.0",
 		"node-color-log": "^12.0.1",
 		"node-cron": "^3.0.3",
@@ -42,8 +40,11 @@
 		"ws": "^8.16.0"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.24.5",
-		"@babel/preset-env": "^7.24.5",
+		"@babel/cli": "^7.24.6",
+		"@babel/core": "^7.24.6",
+		"@babel/node": "^7.24.6",
+		"@babel/plugin-transform-modules-commonjs": "^7.24.6",
+		"@babel/preset-env": "^7.24.6",
 		"babel-jest": "^29.7.0",
 		"jest": "^29.7.0",
 		"prisma": "^5.14.0"

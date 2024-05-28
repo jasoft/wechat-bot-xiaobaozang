@@ -7,4 +7,8 @@ export default {
 	//   "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
 	// },
 	testEnvironment: "node",
+	transformIgnorePatterns: ["/node_modules/", "\\.pnp\\.[^\\/]+$"],
+	testEnvironmentOptions: {
+		environment: "node",
+	},
 }

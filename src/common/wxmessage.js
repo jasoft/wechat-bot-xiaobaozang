@@ -1,8 +1,10 @@
+"use strict"
 import { execSync } from "child_process"
 import { imageUnderstanding } from "../xunfei/imageunderstanding.js"
 import { recognizeAudio } from "../xunfei/voicerecog.js"
-import pkg from "@wcferry/core"
-const { Message, Wcferry } = pkg
+// const pkg = require("@wcferry/core")
+// const { Wcferry } = pkg
+import { Wcferry } from "@wcferry/core"
 import logger from "./logger.js"
 
 export const wxclient = new Wcferry({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })

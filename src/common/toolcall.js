@@ -13,7 +13,7 @@ async function query_chatlog(topicId, query) {
 		const messages = result.hits.map((item) => {
 			return `${item.alias}说: ${item.content} `
 		})
-		return messages.join("\n")
+		return `以下是我们聊天的一些记录, 回答时可以参考这些: ${messages.join("\n")}`
 	}
 	return "[错误]"
 }
