@@ -8,5 +8,5 @@ Chromium.app
 config.js
 assets/**/*
 prisma/dev.db
-public/attachments
+public/
 

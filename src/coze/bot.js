@@ -2,18 +2,17 @@ import { OpenAIBot } from "../common/openaiBot.js"
 import axios from "axios"
 
 export class CozeBot extends OpenAIBot {
-	// Your code here
 	constructor(env = process.env) {
 		super()
 		this.env = env
 		this.topicId = env.TOPIC_ID
 	}
 	async getResponse(parsedMessage) {
-		const { orignalMessage, convertedMessage, payload } = parsedMessage
+		const { originalMessage: originalMessage, convertedMessage, payload } = parsedMessage
 
 		// Your code here
 		return {
-			orignalMessage: orignalMessage,
+			originalMessage: originalMessage,
 			convertedMessage: convertedMessage,
 			response: this.sendRequest(payload),
 		}

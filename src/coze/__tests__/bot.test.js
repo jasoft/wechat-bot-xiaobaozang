@@ -1,5 +1,4 @@
-import { CozeBot } from "../bot.js"
-import axios from "axios"
+import {CozeBot} from "../bot.js"
 import dotenv from "dotenv"
 
 dotenv.config()
