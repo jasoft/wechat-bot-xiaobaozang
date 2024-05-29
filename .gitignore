@@ -9,4 +9,4 @@ config.js
 assets/**/*
 prisma/dev.db
 public/
-
+.idea/
