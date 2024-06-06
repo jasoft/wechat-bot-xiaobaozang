@@ -18,12 +18,14 @@ class WcferryEx extends Wcferry {
 			logger.debug("WXMessage", `contactId for ${receiver}: ${contactId}`)
 		} else {
 			logger.error("WXMessage", `No contact found for ${receiver}`)
+			throw new Error(`No contact found for ${receiver}`)
 		}
 		return contactId
 	}
 
-	async sendTxtByName(msg, receiver, aters) {
-		return this.sendTxt(msg, this.getContactId(receiver), aters)
+	sendTxtByName(msg, receiver, aters) {
+		if (this.sendTxt(msg, this.getContactId(receiver), aters) != 0)
+			throw new Error(`Send wechat message to ${receiver} with ${msg} failed.`)
 	}
 }
 

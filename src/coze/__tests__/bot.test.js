@@ -12,13 +12,18 @@ describe("CozeBot", () => {
 
 	afterEach(() => {})
 
-	it("should send a request to the Coze API and return the response", async () => {
+	it("应该向 Coze API 发送请求并返回响应", async () => {
 		const payload = [{ role: "user", content: "你好, 明天天气怎么样", content_type: "text" }]
 
 		const expectedResponse = [
 			"天气",
 			"weather",
+			"明天",
+			"天气预报",
 			// ...expected response data...
+			"温度",
+			"湿度",
+			"风速",
 		]
 
 		const response = await cozeBot.sendRequest(payload)

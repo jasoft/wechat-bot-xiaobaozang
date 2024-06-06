@@ -10,7 +10,7 @@ import { startApiServer } from "../common/apiserver.js"
 
 const env = dotenv.config().parsed // 环境参数
 
-let serviceType = "Groq"
+let serviceType = "Dify"
 
 let off = () => {}
 
@@ -88,6 +88,10 @@ function handleStart(type) {
 			if (env.GROQ_API_KEY) return botStart()
 			logger.error("❌ 请先配置.env文件中的 GROQ_API_KEY")
 			break
+		case "Dify":
+			if (env.DIFY_API_KEY && env.DIFY_BASE_URL) return botStart()
+			logger.error("❌ 请先配置.env文件中的 DIFY_API_KEY，DIFY_BASE_URL")
+			break
 		default:
 			logger.error("🚀服务类型错误")
 	}
@@ -98,6 +102,7 @@ const serveList = [
 	{ name: "Kimi", value: "Kimi" },
 	{ name: "Xunfei", value: "Xunfei" },
 	{ name: "Groq", value: "Groq" },
+	{ name: "Dify", value: "Dify" },
 	// ... 欢迎大家接入更多的服务
 ]
 const questions = [

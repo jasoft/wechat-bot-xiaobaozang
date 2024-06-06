@@ -82,6 +82,7 @@ class Summarizer {
 			}
 		} catch (error) {
 			logger.error("Error summarizing content by topic ID:", error.stack)
+			throw error
 		} finally {
 			await prisma.$disconnect()
 		}
@@ -106,7 +107,7 @@ class Summarizer {
 
 		const ai = new OpenAI({
 			apiKey: process.env.OPENAI_API_KEY,
-			baseURL: process.env.OPENAI_ENDPOINT,
+			baseURL: process.env.OPENAI_BASE_URL,
 		})
 		const chatCompletion = await ai.chat.completions.create({
 			messages: contentSummary,

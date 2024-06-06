@@ -14,22 +14,41 @@ export async function startApiServer() {
 	app.use(bodyParser())
 	app.use(router.routes())
 	app.use(router.allowedMethods())
-
+	function createResponseBody(message, code, recipient, text) {
+		return { message, code, recipient, text }
+	}
 	router.post("/message", (ctx) => {
 		const { recipient, message } = ctx.request.body
+
 		if (!recipient || !message) {
-			ctx.code = 400
-			ctx.body = { error: "Recipient and message are required." }
+			ctx.status = 400
+			ctx.body = createResponseBody("Recipient and message are required.", 400, recipient, message)
+			return
 		}
 
 		try {
 			wxclient.sendTxtByName(message, recipient)
-			ctx.body = { message: "Message sent successfully" }
+
+			ctx.body = createResponseBody("Message sent successfully", 200, recipient, message)
 		} catch (error) {
-			ctx.code = 500
-			ctx.body = { error: "Error sending message." }
+			ctx.status = 400
+			ctx.body = createResponseBody("Error sending message.", 400, null, error.message)
 		}
 	})
+
+	// 实现一个发送微信的 API工具,返回人类友好的消息, 供各种 bot 调用
+	router.post("/message/toolcall", (ctx) => {
+		const { recipient, message } = ctx.request.body
+
+		try {
+			wxclient.sendTxtByName(message, recipient)
+
+			ctx.body = `微信消息"${message}"成功发送给"${recipient}"啦! `
+		} catch (error) {
+			ctx.body = `发送消息出错啦, 重新试一下吧`
+		}
+	})
+
 	router.get("/message", (ctx) => {
 		// 实现获取用户的逻辑
 		ctx.body = { code: 200, message: "一个发送微信的 api" }

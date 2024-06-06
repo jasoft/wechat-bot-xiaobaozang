@@ -1,349 +1,328 @@
-"use strict";
-import {
-  aliasWhiteList,
-  botName,
-  contextLimit,
-  keywords,
-  roomWhiteList,
-} from "../../config.js";
-import { getServe } from "./serve.js";
-import path from "path";
-import { PrismaClient } from "@prisma/client";
-import logger from "../common/logger.js";
-import { colorize } from "json-colorizer";
-import { Message, Wcferry } from "@wcferry/core";
-import { formatDistanceToNow } from "date-fns";
+"use strict"
+import { aliasWhiteList, botName, contextLimit, keywords, roomWhiteList } from "../../config.js"
+import { getServe } from "./serve.js"
+import path from "path"
+import { PrismaClient } from "@prisma/client"
+import logger from "../common/logger.js"
+import { colorize } from "json-colorizer"
+import { Message, Wcferry } from "@wcferry/core"
+import { formatDistanceToNow } from "date-fns"
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient()
 
 class MessageHandler {
-  /**
-   * 构造函数
-   *
-   * @param {Message} msg 收到的微信消息对象
-   * @param {Wcferry} bot 微信机器人实例
-   * @param {string} serviceType 服务类型，默认为GPT
-   */
-  constructor(msg, bot, serviceType = "GPT") {
-    this.msg = msg;
-    this.bot = bot;
-    this.serviceType = serviceType;
-    this.getReply = getServe(serviceType);
+	/**
+	 * 构造函数
+	 *
+	 * @param {Message} msg 收到的微信消息对象
+	 * @param {Wcferry} bot 微信机器人实例
+	 * @param {string} serviceType 服务类型，默认为GPT
+	 */
+	constructor(msg, bot, serviceType = "GPT") {
+		this.msg = msg
+		this.bot = bot
+		this.serviceType = serviceType
+		this.getReply = getServe(serviceType)
 
-    this.MSG_TYPE_TEXT = 1;
-    this.MSG_TYPE_IMAGE = 3;
-    this.MSG_TYPE_VOICE = 34;
+		this.MSG_TYPE_TEXT = 1
+		this.MSG_TYPE_IMAGE = 3
+		this.MSG_TYPE_VOICE = 34
 
-    this.contactId = msg.sender;
-    this.contact = bot.getContact(this.contactId);
-    this.roomId = msg.roomId;
-    this.roomName = bot.getContact(this.roomId)?.name || null;
-    this.alias = this.contact.remark || this.contact.name;
-    this.remarkName = this.contact.remark;
-    this.name = this.contact.name;
+		this.contactId = msg.sender
+		this.contact = bot.getContact(this.contactId)
+		this.roomId = msg.roomId
+		this.roomName = bot.getContact(this.roomId)?.name || null
+		this.alias = this.contact.remark || this.contact.name
+		this.remarkName = this.contact.remark
+		this.name = this.contact.name
 
-    this.isText = msg.type === this.MSG_TYPE_TEXT;
-    this.isImage = msg.type === this.MSG_TYPE_IMAGE;
-    this.isVoice = msg.type === this.MSG_TYPE_VOICE;
-    this.content = msg.content ? msg.content : "[其他消息]";
-    this.isRoom = roomWhiteList.includes(this.roomName);
-    this.isAlias =
-      aliasWhiteList.includes(this.remarkName) ||
-      aliasWhiteList.includes(this.name);
-    const cleanedBotName = botName.replace("@", "");
-    this.isBotSelf =
-      cleanedBotName === this.remarkName || cleanedBotName === this.name;
-    this.topicId = this.roomId ? this.roomId : this.contactId;
-  }
+		this.isText = msg.type === this.MSG_TYPE_TEXT
+		this.isImage = msg.type === this.MSG_TYPE_IMAGE
+		this.isVoice = msg.type === this.MSG_TYPE_VOICE
+		this.content = msg.content ? msg.content : "[其他消息]"
+		this.isRoom = roomWhiteList.includes(this.roomName)
+		this.isAlias = aliasWhiteList.includes(this.remarkName) || aliasWhiteList.includes(this.name)
+		const cleanedBotName = botName.replace("@", "")
+		this.isBotSelf = cleanedBotName === this.remarkName || cleanedBotName === this.name
+		this.topicId = this.roomId ? this.roomId : this.contactId
+	}
 
-  async handle() {
-    logger.debug("", "message data", colorize(this));
+	async handle() {
+		logger.debug("", "message data", colorize(this))
 
-    if (this.isBotSelf) return; // If the bot sent the message, ignore it
+		if (this.isBotSelf) return // If the bot sent the message, ignore it
 
-    const normalizedMessage = await this.normalizeMessage();
-    await this.saveMessageToDatabase(
-      "user",
-      normalizedMessage,
-      this.name,
-      this.alias,
-    );
+		const normalizedMessage = await this.normalizeMessage()
+		await this.saveMessageToDatabase("user", normalizedMessage, this.name, this.alias)
 
-    try {
-      if (this.isRoom && this.roomId) {
-        await this.handleRoomMessage();
-      }
+		try {
+			if (this.isRoom && this.roomId) {
+				await this.handleRoomMessage()
+			}
 
-      if (this.isAlias && !this.roomId) {
-        await this.handleChat(false, this.contactId);
-      }
-    } catch (e) {
-      logger.error("sendMessage", e.message);
-      console.error(e);
-    } finally {
-      await prisma.$disconnect();
-    }
-  }
+			if (this.isAlias && !this.roomId) {
+				await this.handleChat(false, this.contactId)
+			}
+		} catch (e) {
+			logger.error("sendMessage", e.message)
+			console.error(e)
+		} finally {
+			await prisma.$disconnect()
+		}
+	}
 
-  /**
-   * 处理群消息, 判断是否需要触发对话, 触发对话则发送消息 (只有在群聊中触发关键词或者在群聊中与机器人对话时才会触发)
-   *
-   * @returns {Promise<void>} 无返回值
-   */
-  async handleRoomMessage() {
-    const historyMessages = await this.getHistoryMessages(
-      this.roomId,
-      contextLimit,
-    );
-    const lastMessage = historyMessages.at(-1);
-    logger.info("最后一条消息", lastMessage);
-    const lastMessageContainsKeyword = keywords.some((keyword) =>
-      lastMessage.content.includes(keyword),
-    );
+	/**
+	 * 处理群消息, 判断是否需要触发对话, 触发对话则发送消息 (只有在群聊中触发关键词或者在群聊中与机器人对话时才会触发)
+	 *
+	 * @returns {Promise<void>} 无返回值
+	 */
+	async handleRoomMessage() {
+		const historyMessages = await this.getHistoryMessages(this.roomId, contextLimit)
+		const lastMessage = historyMessages.at(-1)
+		logger.info("最后一条消息", lastMessage)
+		const lastMessageContainsKeyword = keywords.some((keyword) => lastMessage.content.includes(keyword))
 
-    const triggeredByKeywordsInHistory = historyMessages.some((message) => {
-      return keywords.some((keyword) => message.content.includes(keyword));
-    });
+		const triggeredByKeywordsInHistory = historyMessages.some((message) => {
+			return keywords.some((keyword) => message.content.includes(keyword))
+		})
 
-    const botIsActive = () => {
-      for (let i = historyMessages.length - 1; i >= 0; i--) {
-        if (historyMessages[i].role === "assistant") {
-          const lastBotMessageTime = new Date(historyMessages[i].createdAt);
-          const timeSinceLastBotMessage = new Date() - lastBotMessageTime;
-          logger.info(
-            "Time since last bot message:",
-            formatDistanceToNow(lastBotMessageTime, { addSuffix: true }),
-          );
-          if (timeSinceLastBotMessage < 1000 * 60 * 5) {
-            logger.info(
-              "Found bot message within 5 minutes, we are still in a conversation, reply.",
-            );
-            return true;
-          } else {
-            break; // Exit loop if the message is older than 5 minutes
-          }
-        }
-      }
-      logger.info("No recent bot message found in the last 5 minutes.");
-      return false;
-    };
-    logger.info("检查是否应该回复群消息:", {
-      lastMessageContainsKeyword,
-      triggeredByKeywordsInHistory,
-      botInConversation: botIsActive(),
-    });
-    if (
-      lastMessageContainsKeyword ||
-      botIsActive() ||
-      this.isImage ||
-      this.isVoice
-    ) {
-      logger.info(`触发群消息回复, 发送消息到群聊"${this.roomName}"`);
-      await this.handleChat(true, this.roomId);
-    }
-  }
+		const botIsActive = () => {
+			let result = false
+			for (let i = historyMessages.length - 1; i >= 0; i--) {
+				if (historyMessages[i].role === "assistant") {
+					const lastBotMessageTime = new Date(historyMessages[i].createdAt)
+					const timeSinceLastBotMessage = new Date() - lastBotMessageTime
+					logger.info(
+						"Time since last bot message:",
+						formatDistanceToNow(lastBotMessageTime, { addSuffix: true })
+					)
+					if (timeSinceLastBotMessage < 1000 * 60 * 5) {
+						logger.info("在5分钟内找到了机器人的消息，我们仍然在对话中，查看是否有停止指令。")
 
-  /**
-   * 处理聊天消息, 获取历史消息, 构建对话上下文, 发送消息
-   *
-   * @param isRoom 是否是群聊
-   * @param chatId 聊天id
-   * @returns 无返回值
-   */
-  async handleChat(isRoom, chatId) {
-    const messages = await this.prepareMessagesForPrompt(chatId, isRoom);
-    if (messages.length === 0) return;
+						const reversedMessages = historyMessages.slice().reverse()
+						const stopCommand = reversedMessages.find(
+							(message) =>
+								message.role === "user" &&
+								(message.content.includes("不要说话") || message.content.includes("闭嘴"))
+						)
+						if (stopCommand) {
+							// 停止消息的时间在最近的机器人消息之后，则停止回复
+							if (new Date(stopCommand.createdAt) > lastBotMessageTime) {
+								logger.info("用户要求停止回复，不再回复消息。", stopCommand)
+							} else {
+								logger.info("用户停止消息后又发现了 bot 消息,bot 被再次激活，继续回复消息。")
+								result = true
+							}
+						} else {
+							logger.info("用户没有要求停止回复，继续回复消息。")
+							result = true
+						}
+					} else {
+						break // Exit loop if the message is older than 5 minutes
+					}
+				}
+			}
+			if (!result) logger.info("在过去的5分钟内没有找到最近的机器人消息。")
+			return result
+		}
 
-    const question = await this.buildPayload(messages);
-    const response = await this.getReply(chatId, question, {
-      alias: this.alias,
-    });
-    logger.debug(
-      isRoom ? "room response" : "contact response",
-      colorize(response),
-    );
-    let sayText = response.response;
+		logger.info("检查是否应该回复群消息:", {
+			lastMessageContainsKeyword,
+			triggeredByKeywordsInHistory,
+			botInConversation: botIsActive(),
+		})
+		if (lastMessageContainsKeyword || botIsActive() || this.isImage || this.isVoice) {
+			logger.info(`触发群消息回复, 发送消息到群聊"${this.roomName}"`)
+			await this.handleChat(true, this.roomId)
+		}
+	}
 
-    if (this.isVoice) {
-      await this.updateVoiceMsgToText(chatId, response.convertedMessage);
-    }
+	/**
+	 * 处理聊天消息, 获取历史消息, 构建对话上下文, 发送消息
+	 *
+	 * @param isRoom 是否是群聊
+	 * @param chatId 聊天id
+	 * @returns 无返回值
+	 */
+	async handleChat(isRoom, chatId) {
+		const messages = await this.prepareMessagesForPrompt(chatId, isRoom)
+		if (messages.length === 0) return
 
-    await this.saveMessageToDatabase("assistant", sayText, botName, botName);
-    this.bot.sendTxt(sayText, chatId);
-  }
+		const question = await this.buildPayload(messages)
+		const response = await this.getReply(chatId, question, {
+			name: this.alias,
+		})
+		logger.debug(isRoom ? "room response" : "contact response", colorize(response))
+		let sayText = response.response
 
-  async prepareMessagesForPrompt(chatId) {
-    let chatHistory = await this.getHistoryMessages(chatId, contextLimit);
+		if (this.isVoice) {
+			await this.updateVoiceMsgToText(chatId, response.convertedMessage)
+		}
 
-    if (this.isImage) {
-      chatHistory = [
-        {
-          role: "user",
-          alias: this.alias,
-          content: await this.normalizeMessage(),
-        },
-      ];
-    } else if (this.isVoice) {
-      chatHistory.push({
-        role: "user",
-        alias: this.alias,
-        content: await this.normalizeMessage(),
-      });
-    }
+		await this.saveMessageToDatabase("assistant", sayText, botName, botName)
+		this.bot.sendTxt(sayText, chatId)
+	}
 
-    return chatHistory;
-  }
+	async prepareMessagesForPrompt(chatId) {
+		let chatHistory = await this.getHistoryMessages(chatId, contextLimit)
 
-  async buildPayload(context) {
-    return context.map((message, index, array) => {
-      if (index === array.length - 1) {
-        return { role: message.role, content: message.content };
-      }
+		if (this.isImage) {
+			chatHistory = [
+				{
+					role: "user",
+					alias: this.alias,
+					content: await this.normalizeMessage(),
+				},
+			]
+		} else if (this.isVoice) {
+			chatHistory.push({
+				role: "user",
+				alias: this.alias,
+				content: await this.normalizeMessage(),
+			})
+		}
 
-      const saySelfMessage = {
-        role: message.role,
-        content: `<user>爸爸</user>${message.content}`,
-      };
+		return chatHistory
+	}
 
-      if (message.role === "user" || message.role === "assistant") {
-        if (this.isRoom) return saySelfMessage;
-        return { role: message.role, content: `${message.content}` };
-      } else if (message.role === "summary") {
-        return {
-          role: "user",
-          content: `以下是我们以前聊天的总结:${message.content}`,
-        };
-      }
-    });
-  }
+	async buildPayload(context) {
+		return context.map((message, index, array) => {
+			if (index === array.length - 1) {
+				return { role: message.role, content: message.content }
+			}
 
-  async normalizeMessage() {
-    let normalizedMessage = this.content;
+			const saySelfMessage = {
+				role: message.role,
+				content: `我是${message.alias}, 我的问题是: ${message.content}`,
+			}
 
-    const attachmentPath = path.join(
-      process.env.WCF_ROOT,
-      "public",
-      "attachments",
-    );
+			if (message.role === "user") {
+				if (this.isRoom) return saySelfMessage
+				return { role: message.role, content: `${message.content}` }
+			} else if (message.role === "assistant") {
+				return {
+					role: message.role,
+					content: `${message.content}`,
+				}
+			} else if (message.role === "summary") {
+				return {
+					role: "user",
+					content: `以下是我们以前聊天的总结:${message.content}`,
+				}
+			}
+		})
+	}
 
-    try {
-      if (this.isVoice) {
-        logger.info("voice message", this.msg.id);
+	async normalizeMessage() {
+		let normalizedMessage = this.content
 
-        const fileName = await this.bot.getAudioMsg(
-          this.msg.id,
-          attachmentPath,
-          10,
-        );
+		const attachmentPath = path.join(process.env.WCF_ROOT, "public", "attachments")
 
-        normalizedMessage = `[语音消息]{${fileName}}`;
-      }
-      if (this.isImage) {
-        const fileName = await this.bot.downloadImage(
-          this.msg.id,
-          attachmentPath,
-          undefined,
-          undefined,
-          10,
-        );
-        normalizedMessage = `[图片消息]{${fileName}}`;
-      }
-    } catch (error) {
-      logger.error("下载语音/图片出错", error);
-      normalizedMessage = "[其他消息][错误]下载语音/图片出错";
-    }
+		try {
+			if (this.isVoice) {
+				logger.info("voice message", this.msg.id)
 
-    return normalizedMessage;
-  }
+				const fileName = await this.bot.getAudioMsg(this.msg.id, attachmentPath, 10)
 
-  async saveMessageToDatabase(role, content, name, alias) {
-    if (content.startsWith("<")) {
-      logger.warn("Ignoring message with HTML content", content);
-      return;
-    }
+				normalizedMessage = `[语音消息]{${fileName}}`
+			}
+			if (this.isImage) {
+				const fileName = await this.bot.downloadImage(this.msg.id, attachmentPath, undefined, undefined, 10)
+				normalizedMessage = `[图片消息]{${fileName}}`
+			}
+		} catch (error) {
+			logger.error("下载语音/图片出错", error)
+			normalizedMessage = "[其他消息][错误]下载语音/图片出错"
+		}
 
-    logger.info(
-      "Saving message to database",
-      colorize({ role, content, name, alias }),
-    );
-    await prisma.message.create({
-      data: {
-        content: content,
-        topicId: this.topicId,
-        roomName: this.roomName,
-        name: name,
-        alias: alias,
-        role: role,
-        isRoom: this.isRoom,
-      },
-    });
-  }
+		return normalizedMessage
+	}
 
-  async getSummaryByTopic(topicId) {
-    return prisma.message.findFirst({
-      where: {
-        topicId: topicId,
-        role: "summary",
-      },
-    });
-  }
+	async saveMessageToDatabase(role, content, name, alias) {
+		if (content.startsWith("<")) {
+			logger.warn("Ignoring message with HTML content", content)
+			return
+		}
 
-  /**
-   * 获取历史消息列表
-   *
-   * @param topicId 主题ID
-   * @param nums 获取的消息数量
-   * @returns <Promise> 返回一个Promise，resolve为历史消息数组，reject为错误信息
-   */
-  async getHistoryMessages(topicId, nums) {
-    const recentMessages = await prisma.message.findMany({
-      where: {
-        topicId: topicId,
-      },
-      take: nums,
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+		logger.info("Saving message to database", colorize({ role, content, name, alias }))
+		await prisma.message.create({
+			data: {
+				content: content,
+				topicId: this.topicId,
+				roomName: this.roomName,
+				name: name,
+				alias: alias,
+				role: role,
+				isRoom: this.isRoom,
+			},
+		})
+	}
 
-    const summary = await this.getSummaryByTopic(topicId);
-    if (summary) {
-      recentMessages.push(summary);
-    }
-    return recentMessages.reverse();
-  }
+	async getSummaryByTopic(topicId) {
+		return prisma.message.findFirst({
+			where: {
+				topicId: topicId,
+				role: "summary",
+			},
+		})
+	}
 
-  /**
-   * 将语音消息转换为文本并更新到数据库中
-   *
-   * @param chatId 聊天ID
-   * @param convertedMessage 转换后的文本消息
-   * @returns 无返回值
-   */
-  async updateVoiceMsgToText(chatId, convertedMessage) {
-    const lastMessage = await prisma.message.findFirst({
-      where: {
-        topicId: chatId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+	/**
+	 * 获取历史消息列表
+	 *
+	 * @param topicId 主题ID
+	 * @param nums 获取的消息数量
+	 * @returns <Promise> 返回一个Promise，resolve为历史消息数组，reject为错误信息
+	 */
+	async getHistoryMessages(topicId, nums) {
+		const recentMessages = await prisma.message.findMany({
+			where: {
+				topicId: topicId,
+			},
+			take: nums,
+			orderBy: {
+				createdAt: "desc",
+			},
+		})
 
-    if (lastMessage) {
-      await prisma.message.update({
-        where: {
-          id: lastMessage.id,
-        },
-        data: {
-          content: convertedMessage,
-        },
-      });
-    }
-  }
+		const summary = await this.getSummaryByTopic(topicId)
+		if (summary) {
+			recentMessages.push(summary)
+		}
+		return recentMessages.reverse()
+	}
+
+	/**
+	 * 将语音消息转换为文本并更新到数据库中
+	 *
+	 * @param chatId 聊天ID
+	 * @param convertedMessage 转换后的文本消息
+	 * @returns 无返回值
+	 */
+	async updateVoiceMsgToText(chatId, convertedMessage) {
+		const lastMessage = await prisma.message.findFirst({
+			where: {
+				topicId: chatId,
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+		})
+
+		if (lastMessage) {
+			await prisma.message.update({
+				where: {
+					id: lastMessage.id,
+				},
+				data: {
+					content: convertedMessage,
+				},
+			})
+		}
+	}
 }
 
 export async function defaultMessage(msg, bot, serviceType = "GPT") {
-  const handler = new MessageHandler(msg, bot, serviceType);
-  await handler.handle();
+	const handler = new MessageHandler(msg, bot, serviceType)
+	await handler.handle()
 }

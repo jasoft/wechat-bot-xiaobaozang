@@ -1,43 +1,30 @@
 {
 	"openapi": "3.0.0",
 	"info": {
-		"title": "Wechat API",
 		"version": "1.0.0",
-		"description": "API for managing wechat"
+		"title": "WechatBot API server"
 	},
+	"servers": [
+		{
+			"url": "http://192.168.1.15:30099"
+		}
+	],
 	"paths": {
 		"/message": {
-			"get": {
-				"summary": "shows description",
-				"responses": {
-					"200": {
-						"description": "Successful response",
-						"content": {
-							"application/json": {
-								"example": {
-									"code": 200,
-									"message": "how to use this api"
-								}
-							}
-						}
-					}
-				}
-			},
 			"post": {
-				"summary": "Send message",
+				"summary": "发送微信消息",
 				"requestBody": {
+					"required": true,
 					"content": {
 						"application/json": {
 							"schema": {
 								"type": "object",
 								"properties": {
-									"message": {
-										"type": "string",
-										"description": "Message to be sent"
-									},
 									"recipient": {
-										"type": "string",
-										"description": "Recipient of the message"
+										"type": "string"
+									},
+									"message": {
+										"type": "string"
 									}
 								}
 							}
@@ -46,14 +33,138 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Successful response",
+						"description": "消息发送成功",
 						"content": {
 							"application/json": {
-								"example": {
-									"message": "User created successfully"
+								"schema": {
+									"$ref": "#/components/schemas/MessageResponse"
 								}
 							}
 						}
+					},
+					"400": {
+						"description": "请求错误",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			},
+			"get": {
+				"summary": "获取用户信息",
+				"responses": {
+					"200": {
+						"description": "获取成功",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UserResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/message/toolcall": {
+			"post": {
+				"summary": "发送微信消息（工具调用）",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"recipient": {
+										"type": "string"
+									},
+									"message": {
+										"type": "string"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "消息发送成功",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ToolCallResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "请求错误",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"MessageResponse": {
+				"type": "object",
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"code": {
+						"type": "integer"
+					},
+					"recipient": {
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					}
+				}
+			},
+			"ErrorResponse": {
+				"type": "object",
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"code": {
+						"type": "integer"
+					},
+					"error": {
+						"type": "string"
+					}
+				}
+			},
+			"UserResponse": {
+				"type": "object",
+				"properties": {
+					"code": {
+						"type": "integer"
+					},
+					"message": {
+						"type": "string"
+					}
+				}
+			},
+			"ToolCallResponse": {
+				"type": "object",
+				"properties": {
+					"message": {
+						"type": "string"
 					}
 				}
 			}
