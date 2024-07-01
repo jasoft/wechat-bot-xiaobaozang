@@ -2,10 +2,11 @@ import Koa from "koa"
 import Router from "koa-router"
 import bodyParser from "koa-bodyparser"
 import { koaSwagger } from "koa2-swagger-ui"
-import { wxclient } from "./wxmessage.js"
+import { wxClient } from "./wxmessage.js"
 import logger from "./logger.js"
 import path from "path"
 import spec from "./swagger.json"
+import { queryAI } from "../wcf/index.js"
 // 使用 Swagger UI 中间件来提供 API 文档
 
 export async function startApiServer() {
@@ -17,6 +18,7 @@ export async function startApiServer() {
 	function createResponseBody(message, code, recipient, text) {
 		return { message, code, recipient, text }
 	}
+
 	router.post("/message", (ctx) => {
 		const { recipient, message } = ctx.request.body
 
@@ -27,7 +29,7 @@ export async function startApiServer() {
 		}
 
 		try {
-			wxclient.sendTxtByName(message, recipient)
+			wxClient.sendTxtByName(message, recipient)
 
 			ctx.body = createResponseBody("Message sent successfully", 200, recipient, message)
 		} catch (error) {
@@ -41,7 +43,7 @@ export async function startApiServer() {
 		const { recipient, message } = ctx.request.body
 
 		try {
-			wxclient.sendTxtByName(message, recipient)
+			wxClient.sendTxtByName(message, recipient)
 
 			ctx.body = `微信消息"${message}"成功发送给"${recipient}"啦! `
 		} catch (error) {
@@ -54,6 +56,24 @@ export async function startApiServer() {
 		ctx.body = { code: 200, message: "一个发送微信的 api" }
 	})
 
+	// 收到 reminder-api 的提醒， 调用 bot 发送消息
+	router.post("/reminder/callback", async (ctx) => {
+		logger.info("reminder callback", ctx.request.body)
+		const notifyEvents = ctx.request.body.reminders_notified
+		let promises = notifyEvents.map((notifyEvent) => {
+			return queryAI("reminder/callback", [{ role: "user", content: notifyEvent.title }])
+		})
+
+		try {
+			let results = await Promise.all(promises)
+			let responses = results.map((res) => res.response)
+			ctx.body = { code: 200, message: responses }
+			logger.info("reply from ai", responses)
+		} catch (error) {
+			// handle error here
+			logger.error("error", error)
+		}
+	})
 	// 使用 Swagger UI 中间件来提供 API 文档
 	app.use(
 		koaSwagger({

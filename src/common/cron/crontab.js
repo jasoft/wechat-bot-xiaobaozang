@@ -1,16 +1,35 @@
 import cron from "node-cron"
 import { syncChatLogs } from "./syncChatLogs.js"
 import logger from "../logger.js"
+import { PrismaClient } from "@prisma/client"
 
+const prisma = new PrismaClient()
 // 每小时执行一次任务
-export async function startCron() {
+export async function startCron(ai) {
 	cron.schedule("*/5 * * * *", () => {
 		logger.info("CRON", "同步聊天记录到Mellisearch")
 		syncChatLogs()
 	})
+	stopAllCrons()
+	loadCrons(ai)
+}
+let scheduledTasks = []
+async function loadCrons(ai) {
+	const tasks = await prisma.reminder.findMany()
 
-	// 每天凌晨1点执行任务
-	cron.schedule("0 1 * * *", () => {
-		logger.info("CRON", "每天凌晨1点执行")
+	tasks.forEach((task) => {
+		logger.info("CRON", "加载定时任务", task)
+		scheduledTasks.push(
+			cron.schedule(task.cron, () => {
+				logger.info("CRON", "执行定时任务", task)
+				ai("filehelper", [{ role: "user", content: task.command }]).then((res) => {
+					logger.info("CRON", "执行定时任务结果", res.response)
+				})
+			})
+		)
 	})
+}
+function stopAllCrons() {
+	scheduledTasks.forEach((task) => task.stop())
+	scheduledTasks = [] // 清空任务列表
 }

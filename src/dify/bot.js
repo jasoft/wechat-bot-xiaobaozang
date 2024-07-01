@@ -34,7 +34,7 @@ export class DifyBot extends OpenAIBot {
 			query: query,
 			response_mode: "blocking",
 			conversation_id: "",
-			user: this.env.TOPIC_ID || "apiuser",
+			user: this.topicId || "apiuser",
 			auto_generate_name: false,
 		}
 		const url = `${this.env.DIFY_BASE_URL}/chat-messages`

@@ -114,6 +114,58 @@
 					}
 				}
 			}
+		},
+		"/reminder/callback": {
+			"post": {
+				"summary": "Reminder callback",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"reminders_notified": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"title": {
+													"type": "string"
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Successful operation",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "integer",
+											"format": "int32"
+										},
+										"message": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	},
 	"components": {

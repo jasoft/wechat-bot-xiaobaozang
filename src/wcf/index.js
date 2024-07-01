@@ -1,8 +1,7 @@
-import { wxclient } from "../common/wxmessage.js"
+import { wxClient } from "../common/wxmessage.js"
 import { defaultMessage } from "./sendMessage.js"
 import logger from "../common/logger.js"
 import dotenv from "dotenv"
-import Summarizer from "../common/summarize.js"
 import { getServe } from "./serve.js"
 import { colorize } from "json-colorizer"
 import { startCron } from "../common/cron/crontab.js"
@@ -11,13 +10,15 @@ import { startApiServer } from "../common/apiserver.js"
 const env = dotenv.config().parsed // 环境参数
 
 let serviceType = "Dify"
+export let queryAI
 
 let off = () => {}
 
 async function startBot() {
-	const client = wxclient
+	const client = wxClient
 	const isLogin = client.isLogin()
-	startCron()
+	queryAI = getServe(serviceType)
+	startCron(queryAI)
 	startApiServer()
 	// Start receiving messages
 	off = client.on((msg) => {
@@ -30,8 +31,8 @@ async function startBot() {
 	// Send an initial message
 
 	logger.info("Bot is running...")
-	const replyAI = getServe(serviceType)
-	replyAI("filehelper", [{ role: "user", content: "你好, 今天天气如何？" }]).then((res) => {
+
+	queryAI("filehelper", [{ role: "user", content: "你好, 今天天气如何？" }]).then((res) => {
 		logger.info("reply from ai", res.response)
 	})
 	// Keep the bot running indefinitely

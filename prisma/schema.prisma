@@ -19,6 +19,7 @@ model Message {
     name       String
     alias      String
     content    String   @db.VarChar(4096)
+    type       String?
     summarized Boolean  @default(false)
     createdAt  DateTime @default(now())
 }
@@ -30,5 +31,13 @@ model Character {
     alias       String
     topicId     String   @unique
     description String   @db.VarChar(4096)
+    muted       Boolean  @default(false)
     createdAt   DateTime @default(now())
+}
+
+model Reminder {
+    id        Int      @id @default(autoincrement())
+    cron      String
+    command   String
+    createdAt DateTime @default(now())
 }

@@ -7,8 +7,11 @@ import logger from "../common/logger.js"
 import { colorize } from "json-colorizer"
 import { Message, Wcferry } from "@wcferry/core"
 import { formatDistanceToNow } from "date-fns"
+import StateMachine from "javascript-state-machine"
+import { extractLastConversation } from "./conversation.js"
 
 const prisma = new PrismaClient()
+const mutedTopics = new Set()
 
 class MessageHandler {
 	/**
@@ -46,14 +49,25 @@ class MessageHandler {
 		this.isBotSelf = cleanedBotName === this.remarkName || cleanedBotName === this.name
 		this.topicId = this.roomId ? this.roomId : this.contactId
 	}
-
+	getType(type_id) {
+		switch (type_id) {
+			case this.MSG_TYPE_TEXT:
+				return "文本"
+			case this.MSG_TYPE_IMAGE:
+				return "图片"
+			case this.MSG_TYPE_VOICE:
+				return "语音"
+			default:
+				return "其他"
+		}
+	}
 	async handle() {
-		logger.debug("", "message data", colorize(this))
+		//logger.debug("", "message data", colorize(this))
 
 		if (this.isBotSelf) return // If the bot sent the message, ignore it
 
 		const normalizedMessage = await this.normalizeMessage()
-		await this.saveMessageToDatabase("user", normalizedMessage, this.name, this.alias)
+		await this.saveMessageToDatabase("user", normalizedMessage, this.name, this.alias, this.getType(this.msg.type))
 
 		try {
 			if (this.isRoom && this.roomId) {
@@ -71,67 +85,95 @@ class MessageHandler {
 		}
 	}
 
+	async createMuteStateMachine() {
+		const botMuted = mutedTopics.has(this.roomId)
+
+		const botStateMachine = new StateMachine({
+			init: botMuted ? "muted" : "unmuted",
+			transitions: [
+				{ name: "mute", from: "unmuted", to: "muted" },
+				{ name: "unmute", from: "muted", to: "unmuted" },
+			],
+			methods: {
+				onMute: () => {
+					this.bot.sendTxt("小宝藏已经被禁言 15 分钟， 呜呜呜", this.roomId)
+					mutedTopics.add(this.roomId)
+					setTimeout(
+						() => {
+							botStateMachine.unmute()
+						},
+						15 * 60 * 1000
+					)
+				},
+				onUnmute: () => {
+					this.bot.sendTxt("小宝藏可以说话啦！", this.roomId)
+					mutedTopics.delete(this.roomId)
+				},
+			},
+		})
+
+		return botStateMachine
+	}
+
 	/**
 	 * 处理群消息, 判断是否需要触发对话, 触发对话则发送消息 (只有在群聊中触发关键词或者在群聊中与机器人对话时才会触发)
 	 *
 	 * @returns {Promise<void>} 无返回值
 	 */
 	async handleRoomMessage() {
+		const botStateMachine = await this.createMuteStateMachine()
 		const historyMessages = await this.getHistoryMessages(this.roomId, contextLimit)
-		const lastMessage = historyMessages.at(-1)
+
+		const lastConversation = extractLastConversation(historyMessages)
+		const lastMessage = lastConversation.getLastMessage()
 		logger.info("最后一条消息", lastMessage)
+
+		const isMuteCommand = (message) => message.role === "user" && message.content.includes("不要说话")
+		const isUnmuteCommand = (message) => message.role === "user" && message.content.includes("可以说话")
+		if (isMuteCommand(lastMessage)) {
+			botStateMachine.mute()
+		}
+		if (isUnmuteCommand(lastMessage)) {
+			botStateMachine.unmute()
+		}
+		logger.info("bot state", botStateMachine.state)
+
+		if (botStateMachine.state === "muted") {
+			logger.info("小宝藏已经被禁言，不再回复消息。")
+			return
+		}
+
 		const lastMessageContainsKeyword = keywords.some((keyword) => lastMessage.content.includes(keyword))
 
-		const triggeredByKeywordsInHistory = historyMessages.some((message) => {
-			return keywords.some((keyword) => message.content.includes(keyword))
-		})
-
+		// 检查是否是 5分钟内的消息，如果是然后检查 historyMessages 中是否有停止指令， 如果停止指令后没有出现 bot 消息，即 bot 没有被关键字唤醒，则不再回复
+		// 如果是 5 分钟内的消息，且没有发现停止指令，则继续回复
 		const botIsActive = () => {
-			let result = false
-			for (let i = historyMessages.length - 1; i >= 0; i--) {
-				if (historyMessages[i].role === "assistant") {
-					const lastBotMessageTime = new Date(historyMessages[i].createdAt)
-					const timeSinceLastBotMessage = new Date() - lastBotMessageTime
-					logger.info(
-						"Time since last bot message:",
-						formatDistanceToNow(lastBotMessageTime, { addSuffix: true })
-					)
-					if (timeSinceLastBotMessage < 1000 * 60 * 5) {
-						logger.info("在5分钟内找到了机器人的消息，我们仍然在对话中，查看是否有停止指令。")
+			const timeSinceLastBotMessage =
+				new Date() - new Date(lastConversation.getLastRoleMessage("assistant").createdAt)
+			const firstUserMessage = lastConversation.getFirstRoleMessage("user")
 
-						const reversedMessages = historyMessages.slice().reverse()
-						const stopCommand = reversedMessages.find(
-							(message) =>
-								message.role === "user" &&
-								(message.content.includes("不要说话") || message.content.includes("闭嘴"))
-						)
-						if (stopCommand) {
-							// 停止消息的时间在最近的机器人消息之后，则停止回复
-							if (new Date(stopCommand.createdAt) > lastBotMessageTime) {
-								logger.info("用户要求停止回复，不再回复消息。", stopCommand)
-							} else {
-								logger.info("用户停止消息后又发现了 bot 消息,bot 被再次激活，继续回复消息。")
-								result = true
-							}
-						} else {
-							logger.info("用户没有要求停止回复，继续回复消息。")
-							result = true
-						}
-					} else {
-						break // Exit loop if the message is older than 5 minutes
-					}
-				}
+			//对话是语音或者图片消息发起的，不回复
+			if (["语音", "图片"].includes(firstUserMessage.type)) return false
+
+			if (timeSinceLastBotMessage < 1000 * 60 * 5) {
+				logger.info("5 分钟内机器人回复过消息，对话处于激活状态。")
+				return true
 			}
-			if (!result) logger.info("在过去的5分钟内没有找到最近的机器人消息。")
-			return result
+
+			return false
+			// 从后向前遍历 historyMessages，查找最近的机器人消息
 		}
 
 		logger.info("检查是否应该回复群消息:", {
 			lastMessageContainsKeyword,
-			triggeredByKeywordsInHistory,
 			botInConversation: botIsActive(),
 		})
-		if (lastMessageContainsKeyword || botIsActive() || this.isImage || this.isVoice) {
+		if (
+			(lastMessageContainsKeyword && !isMuteCommand(lastMessage)) ||
+			botIsActive() ||
+			this.isImage ||
+			this.isVoice
+		) {
 			logger.info(`触发群消息回复, 发送消息到群聊"${this.roomName}"`)
 			await this.handleChat(true, this.roomId)
 		}
@@ -159,7 +201,7 @@ class MessageHandler {
 			await this.updateVoiceMsgToText(chatId, response.convertedMessage)
 		}
 
-		await this.saveMessageToDatabase("assistant", sayText, botName, botName)
+		await this.saveMessageToDatabase("assistant", sayText, botName, botName, this.getType(this.MSG_TYPE_TEXT))
 		this.bot.sendTxt(sayText, chatId)
 	}
 
@@ -204,12 +246,13 @@ class MessageHandler {
 					role: message.role,
 					content: `${message.content}`,
 				}
-			} else if (message.role === "summary") {
-				return {
-					role: "user",
-					content: `以下是我们以前聊天的总结:${message.content}`,
-				}
 			}
+			// } else if (message.role === "summary") {
+			// 	return {
+			// 		role: "user",
+			// 		content: `以下是我们以前聊天的总结:${message.content}`,
+			// 	}
+			// }
 		})
 	}
 
@@ -238,7 +281,7 @@ class MessageHandler {
 		return normalizedMessage
 	}
 
-	async saveMessageToDatabase(role, content, name, alias) {
+	async saveMessageToDatabase(role, content, name, alias, type) {
 		if (content.startsWith("<")) {
 			logger.warn("Ignoring message with HTML content", content)
 			return
@@ -254,6 +297,7 @@ class MessageHandler {
 				alias: alias,
 				role: role,
 				isRoom: this.isRoom,
+				type: type,
 			},
 		})
 	}

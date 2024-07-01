@@ -1,6 +1,7 @@
 import logger from "npmlog"
-logger.level = process.env.LOG_LEVEL || "info"
 
+logger.level = process.env.LOG_LEVEL || "info"
+logger.info("log level set to", logger.level)
 Object.defineProperty(logger, "heading", {
 	get: () => {
 		return `[${new Date().toLocaleString()}]`

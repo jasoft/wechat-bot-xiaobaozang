@@ -29,8 +29,8 @@ class WcferryEx extends Wcferry {
 	}
 }
 
-export const wxclient = new WcferryEx({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })
-wxclient.start()
+export const wxClient = new WcferryEx({ host: process.env.WCF_HOST, port: parseInt(process.env.WCF_PORT) })
+wxClient.start()
 
 function extractPathFromMessage(message) {
 	const path = message.content.match(/\{(.*)\}/)[1]
