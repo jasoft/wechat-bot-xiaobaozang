@@ -8,7 +8,7 @@ import { colorize } from "json-colorizer"
 import { Message, Wcferry } from "@wcferry/core"
 import { formatDistanceToNow } from "date-fns"
 import StateMachine from "javascript-state-machine"
-import { extractLastConversation } from "./conversation.js"
+import { extractLastConversation } from "../common/conversation.js"
 
 const prisma = new PrismaClient()
 const mutedTopics = new Set()
@@ -125,6 +125,7 @@ class MessageHandler {
 		const historyMessages = await this.getHistoryMessages(this.roomId, contextLimit)
 
 		const lastConversation = extractLastConversation(historyMessages)
+		logger.debug("last conversation", lastConversation.getMessages())
 		const lastMessage = lastConversation.getLastMessage()
 		logger.info("最后一条消息", lastMessage)
 
@@ -149,7 +150,7 @@ class MessageHandler {
 		// 如果是 5 分钟内的消息，且没有发现停止指令，则继续回复
 		const botIsActive = () => {
 			const timeSinceLastBotMessage =
-				new Date() - new Date(lastConversation.getLastRoleMessage("assistant").createdAt)
+				new Date() - new Date(lastConversation.getLastRoleMessage("assistant")?.createdAt ?? 0)
 			const firstUserMessage = lastConversation.getFirstRoleMessage("user")
 
 			//对话是语音或者图片消息发起的，不回复
@@ -246,13 +247,12 @@ class MessageHandler {
 					role: message.role,
 					content: `${message.content}`,
 				}
+			} else if (message.role === "summary") {
+				return {
+					role: "user",
+					content: `以下是我们以前聊天的总结:${message.content}`,
+				}
 			}
-			// } else if (message.role === "summary") {
-			// 	return {
-			// 		role: "user",
-			// 		content: `以下是我们以前聊天的总结:${message.content}`,
-			// 	}
-			// }
 		})
 	}
 

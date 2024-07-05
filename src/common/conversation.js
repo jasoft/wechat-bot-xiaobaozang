@@ -1,4 +1,4 @@
-class Conversation {
+export class Conversation {
 	constructor() {
 		this.messages = []
 	}
@@ -45,10 +45,10 @@ export function extractLastConversation(messages) {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const message = messages[i]
 		const lastMessageTime = new Date(message.createdAt)
-		const previousMessageTime = new Date(messages[i - 1]?.createdAt)
-
+		const previousMessageTime = new Date(messages[i - 1]?.createdAt) ?? 0
+		//console.log(lastMessageTime, previousMessageTime)
 		descMessages.push(message)
-		if (previousMessageTime - lastMessageTime > 1000 * 60 * 15) {
+		if (lastMessageTime - previousMessageTime > 1000 * 60 * 15) {
 			break
 		}
 	}
