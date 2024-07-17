@@ -240,7 +240,7 @@ class MessageHandler {
 
             const saySelfMessage = {
                 role: message.role,
-                content: `我是${message.alias}, 我的问题是: ${message.content}`,
+                content: `${message.alias}说道: ${message.content}`,
             }
 
             if (message.role === "user") {
