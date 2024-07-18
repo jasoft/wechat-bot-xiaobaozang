@@ -1,4 +1,5 @@
 import Koa from "koa"
+import cors from "koa2-cors"
 import Router from "koa-router"
 import bodyParser from "koa-bodyparser"
 import { koaSwagger } from "koa2-swagger-ui"
@@ -7,11 +8,13 @@ import logger from "./logger.js"
 import path from "path"
 import spec from "./swagger.json"
 import { queryAI } from "../wcf/index.js"
+import { searchChatLog } from "./search.js"
 // 使用 Swagger UI 中间件来提供 API 文档
 
 export async function startApiServer() {
     const app = new Koa()
     const router = new Router()
+    app.use(cors())
     app.use(bodyParser())
     app.use(router.routes())
     app.use(router.allowedMethods())
@@ -57,6 +60,12 @@ export async function startApiServer() {
         ctx.body = { code: 200, message: "一个发送微信的 api" }
     })
 
+    router.get("/message/search", async (ctx) => {
+        // 搜索聊天记录
+        const { topicId, keyword } = ctx.query
+        ctx.body = { code: 200, data: await searchChatLog(topicId, keyword) }
+    })
+
     // 收到 reminder-api 的提醒， 调用 bot 发送消息
     router.post("/reminder/callback", async (ctx) => {
         logger.info("reminder callback", ctx.request.body)
@@ -75,7 +84,7 @@ export async function startApiServer() {
             logger.error("error", error)
         }
     })
-    // 使用 Swagger UI 中间件来提供 API 文档
+    // 使用 Swagger UI 中间件来提供 API 文档Empty Clipboard Text
     app.use(
         koaSwagger({
             routePrefix: "/swagger", // host at /swagger instead of default /docs

@@ -1,225 +1,295 @@
 {
-	"openapi": "3.0.0",
-	"info": {
-		"version": "1.0.0",
-		"title": "WechatBot API server"
-	},
-	"servers": [
-		{
-			"url": "http://192.168.1.15:30099"
-		}
-	],
-	"paths": {
-		"/message": {
-			"post": {
-				"summary": "发送微信消息",
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"recipient": {
-										"type": "string"
-									},
-									"message": {
-										"type": "string"
-									}
-								}
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "消息发送成功",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/MessageResponse"
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "请求错误",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ErrorResponse"
-								}
-							}
-						}
-					}
-				}
-			},
-			"get": {
-				"summary": "获取用户信息",
-				"responses": {
-					"200": {
-						"description": "获取成功",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/UserResponse"
-								}
-							}
-						}
-					}
-				}
-			}
-		},
-		"/message/toolcall": {
-			"post": {
-				"summary": "发送微信消息（工具调用）",
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"recipient": {
-										"type": "string"
-									},
-									"message": {
-										"type": "string"
-									}
-								}
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "消息发送成功",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ToolCallResponse"
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "请求错误",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/ErrorResponse"
-								}
-							}
-						}
-					}
-				}
-			}
-		},
-		"/reminder/callback": {
-			"post": {
-				"summary": "Reminder callback",
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"reminders_notified": {
-										"type": "array",
-										"items": {
-											"type": "object",
-											"properties": {
-												"title": {
-													"type": "string"
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "Successful operation",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"code": {
-											"type": "integer",
-											"format": "int32"
-										},
-										"message": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	},
-	"components": {
-		"schemas": {
-			"MessageResponse": {
-				"type": "object",
-				"properties": {
-					"message": {
-						"type": "string"
-					},
-					"code": {
-						"type": "integer"
-					},
-					"recipient": {
-						"type": "string"
-					},
-					"text": {
-						"type": "string"
-					}
-				}
-			},
-			"ErrorResponse": {
-				"type": "object",
-				"properties": {
-					"message": {
-						"type": "string"
-					},
-					"code": {
-						"type": "integer"
-					},
-					"error": {
-						"type": "string"
-					}
-				}
-			},
-			"UserResponse": {
-				"type": "object",
-				"properties": {
-					"code": {
-						"type": "integer"
-					},
-					"message": {
-						"type": "string"
-					}
-				}
-			},
-			"ToolCallResponse": {
-				"type": "object",
-				"properties": {
-					"message": {
-						"type": "string"
-					}
-				}
-			}
-		}
-	}
+    "openapi": "3.0.0",
+    "info": {
+        "version": "1.0.0",
+        "title": "WechatBot API server"
+    },
+    "servers": [
+        {
+            "url": "http://192.168.1.15:30099"
+        }
+    ],
+    "paths": {
+        "/message": {
+            "post": {
+                "summary": "发送微信消息",
+                "operationId": "发送微信消息",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "recipient": {
+                                        "type": "string"
+                                    },
+                                    "message": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "消息发送成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "请求错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "获取用户信息",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/message/search": {
+            "get": {
+                "operationId": "搜索聊天记录",
+                "summary": "搜索聊天记录",
+                "description": "根据话题ID和关键词搜索聊天记录。",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "topicId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "话题ID。"
+                    },
+                    {
+                        "in": "query",
+                        "name": "keyword",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "搜索关键词。"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功响应",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "example": 200
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "message": {
+                                                        "type": "string",
+                                                        "description": "聊天消息内容。"
+                                                    },
+                                                    "sender": {
+                                                        "type": "string",
+                                                        "description": "发送者的标识。"
+                                                    },
+                                                    "timestamp": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "description": "消息发送的时间戳。"
+                                                    }
+                                                }
+                                            },
+                                            "description": "搜索到的聊天记录数据。"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/message/toolcall": {
+            "post": {
+                "operationId": "发送微信消息（工具调用）",
+                "summary": "发送微信消息（工具调用）",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "recipient": {
+                                        "type": "string"
+                                    },
+                                    "message": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "消息发送成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ToolCallResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "请求错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reminder/callback": {
+            "post": {
+                "operationId": "Reminder callback",
+                "summary": "Reminder callback",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "reminders_notified": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "title": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "format": "int32"
+                                        },
+                                        "message": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "MessageResponse": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "integer"
+                    },
+                    "recipient": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "integer"
+                    },
+                    "error": {
+                        "type": "string"
+                    }
+                }
+            },
+            "UserResponse": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "integer"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ToolCallResponse": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
 }

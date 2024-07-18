@@ -20,7 +20,7 @@ export class DifyBot extends OpenAIBot {
         // Your code here
 
         if (containsImage(result)) {
-            const imageUrl = new MarkDown().extractImageLinks(result)[0]
+            let imageUrl = new MarkDown().extractImageLinks(result)[0]
             if (!imageUrl.startsWith("http")) {
                 imageUrl = `${process.env.DIFY_BASE_URL}${imageUrl}`
             }
