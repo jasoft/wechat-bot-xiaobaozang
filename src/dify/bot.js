@@ -3,7 +3,6 @@ import axios from "axios"
 import logger from "../common/logger.js"
 import process from "process"
 import MarkDown from "../common/markdown.js"
-import { containsImage } from "../common/markdown.js"
 import { downloadAndConvertToBase64 } from "../common/helpers.js"
 
 export class DifyBot extends OpenAIBot {
@@ -18,12 +17,8 @@ export class DifyBot extends OpenAIBot {
 
         const result = await this.sendRequest(payload)
         // Your code here
-
-        if (containsImage(result)) {
-            let imageUrl = new MarkDown().extractImageLinks(result)[0]
-            if (!imageUrl.startsWith("http")) {
-                imageUrl = `${process.env.DIFY_BASE_URL}${imageUrl}`
-            }
+        if (result.includes("![image]")) {
+            const imageUrl = `${process.env.DIFY_BASE_URL}${new MarkDown().extractImageLinks(result)[0]}`
             const base64Image = await downloadAndConvertToBase64(imageUrl)
             return {
                 originalMessage: originalMessage,

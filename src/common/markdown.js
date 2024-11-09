@@ -23,8 +23,3 @@ export default class MarkDown {
         return links
     }
 }
-
-export function containsImage(markdown) {
-    const imageRegex = /!\[.*?\]\(.*?\)/g
-    return imageRegex.test(markdown)
-}
