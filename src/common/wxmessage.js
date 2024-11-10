@@ -9,6 +9,7 @@ import logger from "./logger.js"
 class WcferryEx extends Wcferry {
   constructor(options) {
     super(options)
+    logger.debug(options)
   }
 
   getContactId(receiver) {
@@ -20,6 +21,10 @@ class WcferryEx extends Wcferry {
       throw new Error(`No contact found for ${receiver}`)
     }
     return contactId
+  }
+
+  getContact(wxid) {
+    return this.getContacts().find((item) => item.wxid === wxid)
   }
 
   sendTxtByName(msg, receiver, aters) {

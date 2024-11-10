@@ -49,6 +49,8 @@ class MessageHandler {
     const cleanedBotName = botName.replace("@", "")
     this.isBotSelf = cleanedBotName === this.remarkName || cleanedBotName === this.name
     this.topicId = this.roomId ? this.roomId : this.contactId
+
+    logger.info("Message", this)
   }
   getType(type_id) {
     switch (type_id) {
@@ -72,10 +74,12 @@ class MessageHandler {
 
     try {
       if (this.isRoom && this.roomId) {
+        logger.info("处理群消息")
         await this.handleRoomMessage()
       }
 
-      if (this.isAlias && !this.roomId) {
+      if (!this.isRoom) {
+        logger.info("处理私聊消息")
         await this.handleChat(false, this.contactId)
       }
     } catch (e) {
@@ -300,6 +304,7 @@ class MessageHandler {
         type: type,
       },
     })
+    logger.info("Message saved to database")
   }
 
   async getSummaryByTopic(topicId) {
