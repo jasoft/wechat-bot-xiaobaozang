@@ -14,7 +14,7 @@ function Wait-ForWindow {
         }
 
         if ($windows) {
-            Write-Host "Window '$WindowTitle' found."
+            Write-Host "找到窗口 '$WindowTitle'。"
             return $windows[0]
         }
 
@@ -22,7 +22,7 @@ function Wait-ForWindow {
         $elapsed++
     }
 
-    Write-Host "Window '$WindowTitle' not found within $TimeoutSeconds seconds."
+    Write-Host "在 $TimeoutSeconds 秒内未找到窗口 '$WindowTitle'。"
     return $null
 }
 
@@ -40,11 +40,11 @@ function Set-Window {
     $process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
     if ($process) {
         [User32.WinAPI]::SetForegroundWindow($process.MainWindowHandle)
-        Write-Host "Set window for process '$ProcessName'."
+        Write-Host "已激活进程 '$ProcessName' 的窗口。"
         return $true
     }
     else {
-        Write-Host "Process '$ProcessName' not found."
+        Write-Host "未找到进程 '$ProcessName'。"
         return $false
     }
 }
@@ -72,6 +72,7 @@ function Write-Log {
     if (-not (Test-Path $JobsFilePath)) {
         # 创建一个新文件并写入初始数组
         [System.IO.File]::WriteAllText($JobsFilePath, "[]")
+        Write-Host "已创建新的 jobs 文件。"
     }
 
     # 读取现有 JSON 文件
@@ -89,45 +90,38 @@ function Write-Log {
     $Jobs | ConvertTo-Json -Depth 10 | Set-Content $JobsFilePath
 }
 
-# 定期操作
-while ($true) {
-    # 查找目标进程
-    $TargetProcess = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+# 查找目标进程
+$TargetProcess = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
 
-    if ($TargetProcess) {
-        # 终止目标进程
-        Stop-Process -Name $ProcessName -Force
-        Write-Host "Process $ProcessName terminated."
-    }
-    else {
-        Write-Host "Process $ProcessName not found."
-    }
-
-    # 启动目标进程
-    Start-Process -FilePath $ProcessPath
-    Write-Host "Process $ProcessName restarted."
-    
-    # 点击进入
-    # 等待微信窗口出现
-    $window = Wait-ForWindow -WindowTitle "微信" -TimeoutSeconds 30
-    if ($window) {
-        # 激活微信窗口
-        if (Set-Window -ProcessName "WeChat") {
-            # 发送回车键
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-            Write-Host "Sent ENTER key to '微信'."
-        }
-    }
-    else {
-        Write-Host "微信窗口未找到，脚本结束。"
-        break
-    }
-
-
-    # 记录日志
-    Write-Log -ProcessName $ProcessName -StartTime (Get-Date)
-
-    # 等待一段时间再执行下一次操作（例如，每隔 5 分钟）
-    Write-Host "Waiting for 24 hours..."
-    Start-Sleep -Seconds 86400
+if ($TargetProcess) {
+    # 终止目标进程
+    Stop-Process -Name $ProcessName -Force
+    Write-Host "进程 $ProcessName 已终止。"
 }
+else {
+    Write-Host "未找到进程 $ProcessName。"
+}
+
+# 启动目标进程
+Start-Process -FilePath $ProcessPath
+Write-Host "进程 $ProcessName 已重启。"
+
+# 点击进入
+# 等待微信窗口出现
+$window = Wait-ForWindow -WindowTitle "微信" -TimeoutSeconds 30
+if ($window) {
+    # 激活微信窗口
+    if (Set-Window -ProcessName "WeChat") {
+        # 发送回车键
+        [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+        Write-Host "已发送 ENTER 键到 '微信'。"
+    }
+}
+else {
+    Write-Host "未找到微信窗口，脚本结束。"
+    break
+}
+
+
+# 记录日志
+Write-Log -ProcessName $ProcessName -StartTime (Get-Date)

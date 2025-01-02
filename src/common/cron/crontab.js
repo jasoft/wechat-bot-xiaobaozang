@@ -2,6 +2,7 @@ import cron from "node-cron"
 import { syncChatLogs } from "./syncChatLogs.js"
 import logger from "../logger.js"
 import { PrismaClient } from "@prisma/client"
+const { exec } = require("child_process")
 
 const prisma = new PrismaClient()
 // 每小时执行一次任务
@@ -10,6 +11,23 @@ export async function startCron(ai) {
 		logger.info("CRON", "同步聊天记录到Mellisearch")
 		syncChatLogs()
 	})
+	
+	cron.schedule(
+	"*/1 * * * *", () => {
+		logger.info("CRON", "重新启动微信")
+		exec("powershell.exe -File ./autostart.ps1", (error, stdout, stderr) => {
+			if (error) {
+				logger.error("CRON", `执行脚本错误: ${error.message}`)
+				return
+			}
+			if (stderr) {
+				logger.error("CRON", `脚本错误输出: ${stderr}`)
+				return
+			}
+			logger.info("CRON", `脚本输出: ${stdout}`)
+		})
+	})
+
 	stopAllCrons()
 	loadCrons(ai)
 }
