@@ -6,7 +6,7 @@
 	"scripts": {
 		"start": "node ./index.js",
 		"babel-node": "npx babel-node --presets=@babel/preset-env",
-		"dev": "nodemon --delay 1 -i WechatEveryDay.memory-card.json -w .env -w src --ext js,json,env  --exec npm run babel-node ./index.js",
+		"dev": "nodemon --delay 1  -w .env -w src -w jobs.json --ext js,json,env  --exec npm run babel-node ./index.js",
 		"test": "jest"
 	},
 	"author": "soj",
