@@ -27,7 +27,7 @@ export async function startCron(ai) {
     })
   })
 
-  cron.getTasks().forEach((task) => task.start())
+  //cron.getTasks().forEach((task) => task.start())
 
   stopAllCrons()
   loadCrons(ai)
