@@ -113,6 +113,7 @@ if ($window) {
     # 激活微信窗口
     if (Set-Window -ProcessName "WeChat") {
         # 发送回车键
+        Start-Sleep -Seconds 2
         [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
         Write-Host "已发送 ENTER 键到 '微信'。"
     }

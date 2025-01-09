@@ -12,20 +12,18 @@ export async function startCron(ai) {
     syncChatLogs()
   })
 
-  cron.schedule("0 10 * * *", () => {
-    logger.info("CRON", "重新启动微信")
-    exec("powershell.exe -File ./autorestart.ps1", (error, stdout, stderr) => {
-      if (error) {
-        logger.error("CRON", `执行脚本错误: ${error.message}`)
-        return
-      }
-      if (stderr) {
-        logger.error("CRON", `脚本错误输出: ${stderr}`)
-        return
-      }
-      logger.info("CRON", `脚本输出: ${stdout}`)
-    })
-  })
+  // cron.schedule("*/1 * * * *", () => {
+  //   logger.info("CRON", "重新启动微信")
+  //   exec("powershell.exe -File ./autorestart.ps1", (error, stdout, stderr) => {
+  //     if (error) {
+  //       logger.error("CRON", `执行脚本错误: ${error.message}`)
+  //     }
+  //     if (stderr) {
+  //       logger.error("CRON", `脚本错误输出: ${stderr}`)
+  //     }
+  //     logger.info("CRON", `脚本输出: ${stdout}`)
+  //   })
+  // })
 
   //cron.getTasks().forEach((task) => task.start())
 
