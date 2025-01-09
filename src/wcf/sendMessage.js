@@ -6,10 +6,9 @@ import { PrismaClient } from "@prisma/client"
 import logger from "../common/logger.js"
 import { colorize } from "json-colorizer"
 import { Message, Wcferry } from "@zippybee/wechatcore"
-import { formatDistanceToNow } from "date-fns"
 import StateMachine from "javascript-state-machine"
 import { extractLastConversation } from "../common/conversation.js"
-import { log } from "console"
+import fs from "fs"
 
 const prisma = new PrismaClient()
 const mutedTopics = new Set()
