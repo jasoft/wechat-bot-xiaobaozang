@@ -264,6 +264,9 @@ class MessageHandler {
     let normalizedMessage = this.content
 
     const attachmentPath = path.join(process.env.WCF_ROOT, "public", "attachments")
+    if (!fs.existsSync(attachmentPath)) {
+      fs.mkdirSync(attachmentPath, { recursive: true })
+    }
 
     try {
       if (this.isVoice) {

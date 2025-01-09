@@ -124,5 +124,5 @@ else {
 }
 
 
-# 记录日志
+# 记���日志
 Write-Log -ProcessName $ProcessName -StartTime (Get-Date)

@@ -34,7 +34,7 @@ function debounce(func, wait) {
 // rsync 同步函数
 const syncFiles = debounce(() => {
   const robocopyCmd = `robocopy ${localDir} ${remoteDir} /E /XD ${excludeDirs.join(" ")}`
-  exec(robocopyCmd, (error, stdout, stderr) => {
+  exec(robocopyCmd, { encoding: "utf8" }, (error, stdout, stderr) => {
     console.log(`Stdout: ${stdout}`)
   })
 }, 2000) // 设置防抖动等待时间为 2 秒
