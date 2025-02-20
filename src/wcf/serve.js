@@ -9,18 +9,18 @@ import { getDifyReply } from "../dify/index.js"
  * @returns {Promise<void>}
  */
 export function getServe(serviceType) {
-	switch (serviceType) {
-		case "ChatGPT":
-			return getOpenAiReply
-		case "Dify":
-			return getDifyReply
-		case "Kimi":
-			return getKimiReply
-		case "Xunfei":
-			return getXunfeiReply
-		case "Groq":
-			return getGroqReply
-		default:
-			return getOpenAiReply
-	}
+  switch (serviceType) {
+    case "ChatGPT":
+      return getOpenAiReply
+    case "Dify":
+      return getDifyReply
+    case "Kimi":
+      return getKimiReply
+    case "Xunfei":
+      return getXunfeiReply
+    case "Groq":
+      return getGroqReply
+    default:
+      return getOpenAiReply
+  }
 }
