@@ -290,6 +290,7 @@ class MessageHandler {
                 role: "system",
                 content: "这是我和你的聊天记录, 最后是我说的话, 你需要回答或者继续对话",
             })
+        return conversation
     }
 
     async normalizeMessage() {
