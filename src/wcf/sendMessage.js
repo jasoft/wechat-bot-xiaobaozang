@@ -237,15 +237,30 @@ class MessageHandler {
         return chatHistory
     }
 
+    /**
+     * 根据上下文消息构建用于发送到聊天服务的有效载荷。
+     *
+     * 此函数将消息对象数组转换为适合API使用的格式。
+     * 它根据消息角色（用户、助手、摘要）和上下文进行不同处理：
+     * - 对于群聊环境中的用户消息，会在前面加上用户的别名
+     * - 对于数组中的最后一条消息，会保留原始格式
+     * - 对于摘要消息，会将其转换为带有特定前缀的用户消息
+     *
+     * @param {Array<Object>} context - 要处理的消息对象数组
+     * @param {string} context[].role - 消息发送者的角色（'user'、'assistant'或'summary'）
+     * @param {string} context[].content - 消息内容
+     * @param {string} [context[].alias] - 用户的别名/姓名（在群聊环境中使用）
+     * @returns {Array<Object>} 处理后的、可供发送的消息对象
+     */
     async buildPayload(context) {
-        return context.map((message, index, array) => {
+        let conversation = context.map((message, index, array) => {
             if (index === array.length - 1) {
                 return { role: message.role, content: message.content }
             }
 
             const saySelfMessage = {
-                role: message.role,
-                content: `我是${message.alias}, 我的问题是: ${message.content}`,
+                role: message.alias,
+                content: `${message.content}`,
             }
 
             if (message.role === "user") {
@@ -263,6 +278,18 @@ class MessageHandler {
                 }
             }
         })
+
+        if (this.isRoom)
+            conversation.splice(0, 0, {
+                role: "system",
+                content:
+                    "这是一个在微信群中的聊天记录, 你需要弄清楚人物关系并回答,最后是我说的话,你需要回答或者继续对话",
+            })
+        else
+            conversation.splice(0, 0, {
+                role: "system",
+                content: "这是我和你的聊天记录, 最后是我说的话, 你需要回答或者继续对话",
+            })
     }
 
     async normalizeMessage() {
