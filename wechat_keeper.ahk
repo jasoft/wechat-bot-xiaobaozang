@@ -4,7 +4,9 @@
 RestartWeChat() {
     ; 终止微信进程
     RunWait "taskkill /F /IM WeChat.exe", , "Hide"
-
+    ; 终止 mmcrashpad_handler64.exe 进程
+    RunWait "taskkill /F /IM mmcrashpad_handler64.exe", , "Hide"
+    Sleep 500  ; 等待进程终止
     ; 启动微信
     Run "C:\Program Files\Tencent\WeChat\WeChat.exe"
 
@@ -18,6 +20,15 @@ RestartWeChat() {
     Sleep 10000  ; 等待10秒，确保微信完全启动
 }
 
+IsWechatErrorOrMissing() {
+
+    ; 检查微信窗口是否显示“微信已停止工作”或“微信已退出”
+    if WinExist("错误报告") {
+        return true
+    }
+
+    return false
+}
 ; 更新 jobs.json 文件
 UpdateJsonFile() {
     ; 获取当前时间（格式：YYYY-MM-DD HH:MM:SS）
@@ -32,13 +43,11 @@ UpdateJsonFile() {
     ; 将内容写入文件
     File := FileOpen(jsonFile, "w")
     if !File {
-        MsgBox("无法打开文件：" jsonFile)
         return
     }
     File.Write(newContent)  ; 格式化 JSON 数据写入
     File.Close()
 
-    MsgBox("JSON 文件已更新：" jsonFile)
 }
 
 ; 激活微信窗口
@@ -48,7 +57,6 @@ ActivateWeChat() {
         WinActivate
         WinWaitActive
     } else {
-        MsgBox "微信未运行或未找到微信窗口。"
         ExitApp
     }
 }
@@ -95,7 +103,7 @@ lastRestartTime := A_TickCount
 lastMessageTime := A_TickCount
 
 loop {
-    if A_TickCount - lastRestartTime > Random(82800000, 90000000) {  ; 23 to 25 hours in milliseconds
+    if IsWechatErrorOrMissing() {  ; 23 to 25 hours in milliseconds
         RestartWeChat()
         UpdateJsonFile()
         lastRestartTime := A_TickCount
@@ -106,5 +114,5 @@ loop {
         SendMessageToFileHelper()
         lastMessageTime := A_TickCount
     }
-    Sleep 60000  ; 1 minute in milliseconds
+    Sleep 6000  ; 1 minute in milliseconds
 }
