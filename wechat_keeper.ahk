@@ -99,13 +99,41 @@ SendMessageToFileHelper() {
     Send "{Enter}"
 }
 
+; 发送 webhook 到企业微信机器人
+SendWebhookToWeWorkBot(message) {
+    try {
+        ; 企业微信机器人的 webhook 地址
+        webhook_url := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=8d2f4a6e-07ab-465d-a29c-1c9691502631"
+
+        ; 构建 JSON 请求体
+        json_body := '{"msgtype": "text", "text": {"content": "' message '"}}'
+
+        ; 创建 WinHttpRequest 对象
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", webhook_url, true)
+        http.SetRequestHeader("Content-Type", "application/json")
+        http.Send(json_body)
+        http.WaitForResponse()
+
+        ; 可选: 检查响应
+        if (http.Status != 200) {
+            FileAppend "Failed to send webhook: " http.Status " " http.StatusText "`n", A_ScriptDir "\webhook_errors.log"
+        }
+    } catch as err {
+        FileAppend "Error sending webhook: " err.Message "`n", A_ScriptDir "\webhook_errors.log"
+    }
+}
+
 lastRestartTime := A_TickCount
 lastMessageTime := A_TickCount
-
+SendWebhookToWeWorkBot('小宝藏已于' . FormatTime(A_Now, 'yyyy-MM-dd HH:mm:ss') . '启动')
 loop {
     if IsWechatErrorOrMissing() {  ; 23 to 25 hours in milliseconds
         RestartWeChat()
         UpdateJsonFile()
+
+        ; 发送微信重启通知到企业微信机器人
+        SendWebhookToWeWorkBot("小宝藏已于" . FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss") . "重启")
         lastRestartTime := A_TickCount
     }
     if A_TickCount - lastMessageTime > Random(28800000, 43200000) {  ; 8 to 12 hours in milliseconds
