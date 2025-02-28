@@ -38,7 +38,7 @@ export class DifyBot extends OpenAIBot {
 
     async sendRequest(payload) {
         const lastMessage = payload[payload.length - 1]
-        const systemMessage = payload.filter((msg) => msg.role == "system")[0]
+        const systemMessage = payload.find((msg) => msg.role === "system")?.content || ""
 
         const query = `${systemMessage}:\n'''\n${payload
             .slice(0, -1)
