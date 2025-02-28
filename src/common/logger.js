@@ -24,8 +24,13 @@ prefix.apply(logger.getLogger("critical"), {
         return chalk.red.bold(`[${timestamp}] ${level} ${name}:`)
     },
 })
-
+logger.name = "botlogger"
 logger.setLevel(process.env.LOG_LEVEL || "info")
 logger.info("logger level set to", logger.getLevel())
 
 export default logger
+
+logger.info("This is a logger module")
+logger.debug("This is a debug message")
+logger.warn("This is a warning message")
+logger.error("This is an error message")

@@ -5,8 +5,7 @@ import { koaSwagger } from "koa2-swagger-ui"
 import cors from "koa2-cors"
 import { wxClient } from "./wxmessage.js"
 import logger from "./logger.js"
-import path from "path"
-import spec from "./swagger.json"
+import spec from "./swagger.json" assert { type: "json" }
 import { queryAI } from "../wcf/index.js"
 // 使用 Swagger UI 中间件来提供 API 文档
 

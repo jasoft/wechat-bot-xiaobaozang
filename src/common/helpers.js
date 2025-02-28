@@ -1,7 +1,7 @@
 import axios from "axios"
 import fs from "fs"
 import logger from "./logger.js"
-const os = require("os")
+import os from "os"
 
 // 使用 axios 模块
 export async function downloadFile(url, filePath) {
