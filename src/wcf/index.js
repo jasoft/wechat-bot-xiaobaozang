@@ -1,6 +1,6 @@
 import { wxClient } from "../common/wxmessage.js"
 import { processUserMessage } from "./sendMessage.js"
-import logger from "../common/logger.js"
+import rootlogger from "../common/logger.js"
 import dotenv from "dotenv"
 import { getServe } from "./serve.js"
 import { colorize } from "json-colorizer"
@@ -8,6 +8,7 @@ import { startCron } from "../common/cron/crontab.js"
 import { startApiServer } from "../common/apiserver.js"
 import { messageQueue } from "../common/queue.js"
 
+const logger = rootlogger.getLogger("main")
 const env = dotenv.config().parsed // 环境参数
 
 let serviceType = "Dify"

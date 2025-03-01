@@ -5,7 +5,7 @@ import prefix from "loglevel-plugin-prefix"
 const colors = {
     TRACE: chalk.magenta,
     DEBUG: chalk.cyan,
-    INFO: chalk.blue,
+    INFO: chalk.white,
     WARN: chalk.yellow,
     ERROR: chalk.red,
 }
@@ -30,7 +30,7 @@ logger.info("logger level set to", logger.getLevel())
 
 export default logger
 
-logger.info("This is a logger module")
-logger.debug("This is a debug message")
-logger.warn("This is a warning message")
-logger.error("This is an error message")
+// logger.info("This is a logger module")
+// logger.debug("This is a debug message")
+// logger.warn("This is a warning message")
+// logger.error("This is an error message")

@@ -3,7 +3,7 @@ import { aliasWhiteList, botName, contextLimit, keywords, roomWhiteList } from "
 import { getServe } from "./serve.js"
 import path from "path"
 import { PrismaClient } from "@prisma/client"
-import logger from "../common/logger.js"
+import rootlogger from "../common/logger.js"
 import { colorize } from "json-colorizer"
 import { Message, Wcferry } from "@zippybee/wechatcore"
 import StateMachine from "javascript-state-machine"
@@ -12,6 +12,7 @@ import fs from "fs"
 
 const prisma = new PrismaClient()
 const mutedTopics = new Set()
+const logger = rootlogger.getLogger("MessageHandler")
 
 class MessageHandler {
     /**
@@ -291,6 +292,7 @@ class MessageHandler {
                 content: "这是我和你的聊天记录, 最后是我说的话, 你需要回答或者继续对话",
             })
 
+        logger.debug("conversation", conversation)
         return conversation
     }
 

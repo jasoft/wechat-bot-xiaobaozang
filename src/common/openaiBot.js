@@ -96,7 +96,7 @@ export class OpenAIBot {
 
     async getAIReply(payload) {
         // Check if system prompt is provided and not blank, then use it
-        let payloadText = {}
+        let payloadText = []
         if (this.env.SYSTEM_PROMPT && this.env.SYSTEM_PROMPT.trim() !== "") {
             payloadText = [
                 {
@@ -104,9 +104,9 @@ export class OpenAIBot {
                     content: this.env.SYSTEM_PROMPT,
                 },
             ]
-            payloadText.push(...payload)
             // System prompt will be added in the payloadText array initialization below
         }
+        payloadText.push(...payload)
 
         logger.info("AIReplyHandler: Payload", colorize(payloadText))
         return this.getRawReply(payloadText)
