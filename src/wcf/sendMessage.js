@@ -69,7 +69,7 @@ class MessageHandler {
 
         if (this.isBotSelf) return // If the bot sent the message, ignore it
 
-        const normalizedMessage = await this.normalizeMessage()
+        const normalizedMessage = await this.convertMessageToTextRepresentation()
         await this.saveMessageToDatabase("user", normalizedMessage, this.name, this.alias, this.getType(this.msg.type))
 
         try {
@@ -152,6 +152,7 @@ class MessageHandler {
 
         const lastMessageContainsKeyword = keywords.some((keyword) => lastMessage.content.includes(keyword))
 
+
         // 检查是否是 5分钟内的消息，如果是然后检查 historyMessages 中是否有停止指令， 如果停止指令后没有出现 bot 消息，即 bot 没有被关键字唤醒，则不再回复
         // 如果是 5 分钟内的消息，且没有发现停止指令，则继续回复
         const botIsActive = () => {
@@ -224,18 +225,20 @@ class MessageHandler {
                 {
                     role: "user",
                     alias: this.alias,
-                    content: await this.normalizeMessage(),
+                    content: await this.convertMessageToTextRepresentation(),
+                    createdAt: new Date(),
                 },
             ]
         } else if (this.isVoice) {
             chatHistory.push({
                 role: "user",
                 alias: this.alias,
-                content: await this.normalizeMessage(),
+                content: await this.convertMessageToTextRepresentation(),
+                createdAt: new Date(),
             })
         }
 
-        return chatHistory
+        return extractLastConversation(chatHistory).getMessages()
     }
 
     /**
@@ -268,6 +271,7 @@ class MessageHandler {
                 if (this.isRoom) return saySelfMessage
                 return { role: message.role, content: `${message.content}` }
             } else if (message.role === "assistant") {
+                if (this.isRoom) return saySelfMessage
                 return {
                     role: message.role,
                     content: `${message.content}`,
@@ -296,8 +300,17 @@ class MessageHandler {
         return conversation
     }
 
-    async normalizeMessage() {
-        let normalizedMessage = this.content
+    /**
+     * 标准化消息内容，将消息内容转换为文本表示形式
+     * 如果消息是语音或图片消息，则下载并转换为文本表示形式
+     * 如果消息是文本消息，则直接返回消息内容
+     * 如果消息是其他类型的消息，则返回错误消息
+     * @returns {Promise<string>} 标准化后的消息内容
+     * @throws {Error} 如果下载语音或图片消息时出现错误
+     * @throws {Error} 如果消息内容为空或为HTML内容
+     */
+    async convertMessageToTextRepresentation() {
+        let textRepresentation = this.content
 
         const attachmentPath = path.join(process.env.WCF_ROOT, "public", "attachments")
         if (!fs.existsSync(attachmentPath)) {
@@ -310,18 +323,18 @@ class MessageHandler {
 
                 const fileName = await this.bot.getAudioMsg(this.msg.id, attachmentPath, 10)
 
-                normalizedMessage = `[语音消息]{${fileName}}`
+                textRepresentation = `[语音消息]{${fileName}}`
             }
             if (this.isImage) {
                 const fileName = await this.bot.downloadImage(this.msg.id, attachmentPath, undefined, undefined, 10)
-                normalizedMessage = `[图片消息]{${fileName}}`
+                textRepresentation = `[图片消息]{${fileName}}`
             }
         } catch (error) {
             logger.error("下载语音/图片出错", error)
-            normalizedMessage = "[其他消息][错误]下载语音/图片出错"
+            textRepresentation = "[其他消息][错误]下载语音/图片出错"
         }
 
-        return normalizedMessage
+        return textRepresentation
     }
 
     async saveMessageToDatabase(role, content, name, alias, type) {
@@ -360,7 +373,7 @@ class MessageHandler {
      *
      * @param topicId 主题ID
      * @param nums 获取的消息数量
-     * @returns <Promise> 返回一个Promise，resolve为历史消息数组，reject为错误信息
+     * @returns {Promise<Array>} 历史消息列表, 按时间顺序排列（从过去到现在）
      */
     async getHistoryMessages(topicId, nums) {
         const recentMessages = await prisma.message.findMany({

@@ -1,9 +1,9 @@
-const gulp = require("gulp")
-const watch = require("gulp-watch")
-const rsync = require("gulp-rsync")
-const path = require("path")
-const { exec } = require("child_process")
-const iconv = require("iconv-lite")
+import gulp from "gulp"
+import watch from "gulp-watch"
+
+import path from "path"
+import { exec } from "child_process"
+import iconv from "iconv-lite"
 
 // 定义要监控的目录和排除的目录
 const localDir = "." // 修改为你需要监控的目录
