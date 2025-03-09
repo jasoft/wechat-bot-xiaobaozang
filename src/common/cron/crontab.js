@@ -1,51 +1,161 @@
-import cron from "node-cron"
+import { CronJob } from "cron"
 import { syncChatLogs } from "./syncChatLogs.js"
-import logger from "../logger.js"
+import rootLogger from "../logger.js"
 import { PrismaClient } from "@prisma/client"
+import { messageQueue } from "../queue.js"
+import { Message } from "@zippybee/wechatcore"
+
+const logger = rootLogger.getLogger("CRON")
 
 const prisma = new PrismaClient()
-// 每小时执行一次任务
-export async function startCron(ai) {
-    cron.schedule("*/5 * * * *", () => {
+
+// 用于存储所有活动的 cron 任务
+const activeCrons = new Map()
+// 用于标记哪些 cron 是从数据库加载的
+const dbCrons = new Set()
+
+// 停止所有 cron 任务的方法
+export function stopAllCrons() {
+    for (const [name, cronTask] of activeCrons.entries()) {
+        cronTask.stop()
+        logger.info(`停止定时任务: ${name}`)
+    }
+    activeCrons.clear()
+    dbCrons.clear()
+}
+
+// 修改为只停止数据库加载的 cron 任务
+export function stopDbCrons() {
+    for (const name of dbCrons) {
+        const cronTask = activeCrons.get(name)
+        if (cronTask) {
+            cronTask.stop()
+            activeCrons.delete(name)
+            logger.info(`停止数据库定时任务: ${name}`)
+        }
+    }
+    dbCrons.clear()
+}
+
+// 添加 cron 任务的方法
+export function addCron(name, schedule, task, isFromDb = false) {
+    if (activeCrons.has(name)) {
+        const existingTask = activeCrons.get(name)
+        existingTask.stop()
+        activeCrons.delete(name)
+        logger.info(`更新定时任务: ${name}`)
+    }
+
+    const cronTask = new CronJob(
+        schedule,
+        task,
+        null, // onComplete
+        true, // start
+        "Asia/Shanghai" // timeZone
+    )
+
+    activeCrons.set(name, cronTask)
+
+    if (isFromDb) {
+        dbCrons.add(name)
+    }
+
+    // 修正时间格式化，确保包含具体时间
+    const nextRunDate = cronTask.nextDate().toJSDate()
+    const nextRun = nextRunDate.toLocaleString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    })
+
+    logger.info(`添加${isFromDb ? "数据库" : ""}定时任务: ${name}, 计划: ${schedule}, 下次运行: ${nextRun}`)
+
+    return cronTask
+}
+
+// 从数据库加载 cron 任务
+export async function loadCronsFromDb(queryAI) {
+    try {
+        // 停止之前数据库加载的 cron 任务
+        stopDbCrons()
+
+        // 这里从数据库加载 cron 任务配置
+        const tasks = await prisma.reminder.findMany()
+
+        tasks.forEach((task) => {
+            logger.info("CRON", "加载定时任务", task)
+            addCron(
+                task.id,
+                task.cron,
+                () => {
+                    logger.info("CRON", "执行定时任务", task)
+                    // 构造消息对象并发送到队列
+                    const message = {
+                        id: "cron_" + Date.now(),
+                        type: 1, // 1=文本, 3=图片, 34=语音
+                        sender: "cron_" + crypto.randomUUID(),
+                        content: task.command,
+                        roomId: null, // 如果是私聊则为 null
+                    }
+                    messageQueue.enqueue(message)
+                    logger.info("已将定时任务消息加入队列", message)
+                },
+                true
+            )
+        })
+
+        logger.info("成功从数据库重新加载定时任务")
+        // 显示所有crons及其下一次执行时间
+        for (const [name, cronTask] of activeCrons.entries()) {
+            const nextRunDate = cronTask.nextDate().toJSDate()
+            const nextRun = nextRunDate.toLocaleString("zh-CN", {
+                timeZone: "Asia/Shanghai",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            })
+            logger.info(`定时任务: ${name}, 下次运行时间: ${nextRun}`)
+        }
+        return true
+    } catch (error) {
+        logger.error("从数据库加载定时任务失败:", error)
+        return false
+    }
+}
+
+// 启动 cron 系统
+export function startCron(queryAI) {
+    // 初始化静态定义的 cron 任务
+    addCron("sync-chatlogs", "*/5 * * * *", () => {
         logger.info("CRON", "同步聊天记录到Mellisearch")
         syncChatLogs()
     })
 
-    // cron.schedule("*/1 * * * *", () => {
-    //   logger.info("CRON", "重新启动微信")
-    //   exec("powershell.exe -File ./autorestart.ps1", (error, stdout, stderr) => {
-    //     if (error) {
-    //       logger.error("CRON", `执行脚本错误: ${error.message}`)
-    //     }
-    //     if (stderr) {
-    //       logger.error("CRON", `脚本错误输出: ${stderr}`)
-    //     }
-    //     logger.info("CRON", `脚本输出: ${stdout}`)
-    //   })
-    // })
+    // 初始加载数据库的 cron 任务
+    loadCronsFromDb(queryAI)
 
-    //cron.getTasks().forEach((task) => task.start())
-
-    stopAllCrons()
-    loadCrons(ai)
-}
-let scheduledTasks = []
-async function loadCrons(ai) {
-    const tasks = await prisma.reminder.findMany()
-
-    tasks.forEach((task) => {
-        logger.info("CRON", "加载定时任务", task)
-        scheduledTasks.push(
-            cron.schedule(task.cron, () => {
-                logger.info("CRON", "执行定时任务", task)
-                ai("filehelper", [{ role: "user", content: task.command }]).then((res) => {
-                    logger.info("CRON", "执行定时任务结果", res.response)
+    // 添加自动重新加载的 cron 任务 (每天夜里3点更新)
+    addCron(
+        "reload-db-crons",
+        "0 3 * * *",
+        () => {
+            ;(function reloadUntilSuccess() {
+                loadCronsFromDb(queryAI).then((result) => {
+                    if (!result) {
+                        setTimeout(reloadUntilSuccess, 30000) // 30秒后再次尝试
+                    }
                 })
-            })
-        )
-    })
-}
-function stopAllCrons() {
-    scheduledTasks.forEach((task) => task.stop())
-    scheduledTasks = [] // 清空任务列表
+            })()
+        },
+        false
+    )
+
+    logger.info("Cron 系统已启动")
 }

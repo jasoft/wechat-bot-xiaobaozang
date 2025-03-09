@@ -33,12 +33,12 @@ class MessageHandler {
         this.MSG_TYPE_VOICE = 34
 
         this.contactId = msg.sender
-        this.contact = bot.getContact(this.contactId)
+        this.contact = bot.getContact(this.contactId) || {}
         this.roomId = msg.roomId
-        this.roomName = bot.getContact(this.roomId)?.name || null
-        this.alias = this.contact.remark || this.contact.name
-        this.remarkName = this.contact.remark
-        this.name = this.contact.name
+        this.roomName = this.roomId ? bot.getContact(this.roomId)?.name || null : null
+        this.remarkName = this.contact.remark || ""
+        this.name = this.contact.name || ""
+        this.alias = this.remarkName || this.name || "未知用户"
 
         this.isText = msg.type === this.MSG_TYPE_TEXT
         this.isImage = msg.type === this.MSG_TYPE_IMAGE
@@ -151,7 +151,6 @@ class MessageHandler {
         }
 
         const lastMessageContainsKeyword = keywords.some((keyword) => lastMessage.content.includes(keyword))
-
 
         // 检查是否是 5分钟内的消息，如果是然后检查 historyMessages 中是否有停止指令， 如果停止指令后没有出现 bot 消息，即 bot 没有被关键字唤醒，则不再回复
         // 如果是 5 分钟内的消息，且没有发现停止指令，则继续回复
@@ -284,17 +283,20 @@ class MessageHandler {
             }
         })
 
-        if (this.isRoom)
-            conversation.splice(0, 0, {
-                role: "system",
-                content:
-                    "这是一个在微信群中的聊天记录, 你需要弄清楚人物关系并回答,最后是我说的话,你需要回答或者继续对话",
-            })
-        else
-            conversation.splice(0, 0, {
-                role: "system",
-                content: "这是我和你的聊天记录, 最后是我说的话, 你需要回答或者继续对话",
-            })
+        // If conversation array is not empty, proceed with adding system message
+        if (conversation && conversation.length > 0) {
+            if (this.isRoom)
+                conversation.splice(0, 0, {
+                    role: "system",
+                    content:
+                        "这是一个在微信群中的聊天记录, 你需要弄清楚人物关系并回答,最后是我说的话,你需要回答或者继续对话",
+                })
+            else
+                conversation.splice(0, 0, {
+                    role: "system",
+                    content: "这是我和你的聊天记录, 最后是我说的话, 你需要回答或者继续对话",
+                })
+        }
 
         logger.debug("conversation", conversation)
         return conversation
