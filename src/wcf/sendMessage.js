@@ -9,6 +9,7 @@ import { Message, Wcferry } from "@zippybee/wechatcore"
 import StateMachine from "javascript-state-machine"
 import { extractLastConversation } from "../common/conversation.js"
 import fs from "fs"
+import { wxClient } from "../common/wxmessage.js"
 
 const prisma = new PrismaClient()
 const mutedTopics = new Set()
@@ -31,23 +32,38 @@ class MessageHandler {
         this.MSG_TYPE_TEXT = 1
         this.MSG_TYPE_IMAGE = 3
         this.MSG_TYPE_VOICE = 34
+        this.MSG_TYPE_SYSTEM = 9999
 
+        // 从消息中获取发送者的ID
         this.contactId = msg.sender
-        this.contact = bot.getContact(this.contactId) || {}
+        // 检查消息是否由机器人自己发送
+        this.isBotSelf = bot.getSelfWxid() == msg.sender
+        // 根据发送者ID获取联系人信息，如不存在则使用空对象
+        this.contact = this.isBotSelf ? bot.getContact(this.msg.roomId) : bot.getContact(this.contactId)
+        // 获取群聊的ID（如果存在）
         this.roomId = msg.roomId
+        // 如果存在群聊，则获取群聊名称；如果未能获取，则设置为 null
         this.roomName = this.roomId ? bot.getContact(this.roomId)?.name || null : null
+        // 从联系人信息中获取备注名，如无则为空字符串
         this.remarkName = this.contact.remark || ""
+        // 获取联系人的名称，如果不存在则为空字符串
         this.name = this.contact.name || ""
+        // 确定用户别名：优先使用备注名，其次使用名称，若都不存在则默认为 "未知用户"
         this.alias = this.remarkName || this.name || "未知用户"
 
+        // 判断消息是否为文本消息
         this.isText = msg.type === this.MSG_TYPE_TEXT
+        // 判断消息是否为图片消息
         this.isImage = msg.type === this.MSG_TYPE_IMAGE
+        // 判断消息是否为语音消息
         this.isVoice = msg.type === this.MSG_TYPE_VOICE
+        // 设置消息内容，如果不存在则默认为 "[其他消息]"
         this.content = msg.content ? msg.content : "[其他消息]"
+        // 根据房间白名单判断是否为群聊消息
         this.isRoom = roomWhiteList.includes(this.roomName)
+        // 根据别名白名单判断是否为指定用户
         this.isAlias = aliasWhiteList.includes(this.remarkName) || aliasWhiteList.includes(this.name)
-        const cleanedBotName = botName.replace("@", "")
-        this.isBotSelf = cleanedBotName === this.remarkName || cleanedBotName === this.name
+        // 设置话题ID，为群聊则使用 roomId，否则使用 contactId
         this.topicId = this.roomId ? this.roomId : this.contactId
 
         logger.info("Message", this)
@@ -60,6 +76,8 @@ class MessageHandler {
                 return "图片"
             case this.MSG_TYPE_VOICE:
                 return "语音"
+            case this.MSG_TYPE_SYSTEM:
+                return "系统"
             default:
                 return "其他"
         }
@@ -67,7 +85,13 @@ class MessageHandler {
     async handle() {
         //logger.debug("", "message data", colorize(this))
 
-        if (this.isBotSelf) return // If the bot sent the message, ignore it
+        if (this.isBotSelf) {
+            logger.info("消息来自机器人自己")
+            const botName = this.bot.getUserInfo().name
+            this.saveMessageToDatabase("assistant", this.content, botName, botName, this.getType(this.msg.type))
+            this.bot.sendTxt(this.content, this.roomId)
+            return
+        }
 
         const normalizedMessage = await this.convertMessageToTextRepresentation()
         await this.saveMessageToDatabase("user", normalizedMessage, this.name, this.alias, this.getType(this.msg.type))
@@ -201,6 +225,7 @@ class MessageHandler {
         const response = await this.getReply(chatId, question, {
             name: this.alias,
         })
+
         logger.debug(isRoom ? "room response" : "contact response", colorize(response))
         let sayText = response.response
 
@@ -208,14 +233,20 @@ class MessageHandler {
             await this.updateVoiceMsgToText(chatId, response.convertedMessage)
         }
 
-        await this.saveMessageToDatabase("assistant", sayText, botName, botName, this.getType(this.MSG_TYPE_TEXT))
         // 发送消息, 判断是否是图片消息
-        // TODO: dify response 返回的是一个 markdown 语法的图片链接，需要处理
+
         if (response.type === "image") {
             this.bot.sendImage(Buffer.from(response.data, "base64"), chatId)
-        } else this.bot.sendTxt(sayText, chatId)
+        } else {
+            await this.saveMessageToDatabase("assistant", sayText, botName, botName, "文本")
+            if (this.msg.type !== this.MSG_TYPE_SYSTEM) this.bot.sendTxt(sayText, chatId)
+        }
     }
 
+    /**
+     * 为提示准备消息
+     * 从数据库中获取历史消息，如果是图片或语音消息，则转换为文本消息
+     **/
     async prepareMessagesForPrompt(chatId) {
         let chatHistory = await this.getHistoryMessages(chatId, contextLimit)
 
@@ -256,7 +287,13 @@ class MessageHandler {
      * @returns {Array<Object>} 处理后的、可供发送的消息对象
      */
     async buildPayload(context) {
+        if (this.msg.type == this.MSG_TYPE_SYSTEM) {
+            // For system messages, just take the most recent message
+            return [{ role: context.at(-1).role, content: context.at(-1).content }]
+        } // Close the if block
+
         let conversation = context.map((message, index, array) => {
+            if (message.type == "系统") return {}
             if (index === array.length - 1) {
                 return { role: message.role, content: message.content }
             }
@@ -284,7 +321,7 @@ class MessageHandler {
         })
 
         // If conversation array is not empty, proceed with adding system message
-        if (conversation && conversation.length > 0) {
+        if (conversation && conversation.length > 1) {
             if (this.isRoom)
                 conversation.splice(0, 0, {
                     role: "system",

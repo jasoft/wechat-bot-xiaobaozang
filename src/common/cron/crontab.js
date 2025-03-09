@@ -3,7 +3,7 @@ import { syncChatLogs } from "./syncChatLogs.js"
 import rootLogger from "../logger.js"
 import { PrismaClient } from "@prisma/client"
 import { messageQueue } from "../queue.js"
-import { Message } from "@zippybee/wechatcore"
+import crypto from "crypto"
 
 const logger = rootLogger.getLogger("CRON")
 
@@ -13,6 +13,39 @@ const prisma = new PrismaClient()
 const activeCrons = new Map()
 // 用于标记哪些 cron 是从数据库加载的
 const dbCrons = new Set()
+
+// ...existing code...
+
+let lastChecksum = ""
+
+async function checkForChanges() {
+    logger.debug("检查定时任务更新")
+    try {
+        const tasks = await prisma.reminder.findMany({
+            orderBy: {
+                createdAt: "desc",
+            },
+            select: {
+                id: true,
+                cron: true,
+                command: true,
+                createdAt: true,
+                botId: true,
+                roomId: true,
+            },
+        })
+
+        const currentChecksum = crypto.createHash("md5").update(JSON.stringify(tasks)).digest("hex")
+
+        if (currentChecksum !== lastChecksum) {
+            logger.info("检测到定时任务变更")
+            await loadCronsFromDb()
+            lastChecksum = currentChecksum
+        }
+    } catch (error) {
+        logger.error("检查定时任务更新失败:", error)
+    }
+}
 
 // 停止所有 cron 任务的方法
 export function stopAllCrons() {
@@ -96,10 +129,10 @@ export async function loadCronsFromDb(queryAI) {
                     // 构造消息对象并发送到队列
                     const message = {
                         id: "cron_" + Date.now(),
-                        type: 1, // 1=文本, 3=图片, 34=语音
-                        sender: "cron_" + crypto.randomUUID(),
+                        type: 9999, // 1=文本, 3=图片, 34=语音, 9999=系统指令
+                        sender: task.botId,
                         content: task.command,
-                        roomId: null, // 如果是私聊则为 null
+                        roomId: task.roomId,
                     }
                     messageQueue.enqueue(message)
                     logger.info("已将定时任务消息加入队列", message)
@@ -134,28 +167,11 @@ export async function loadCronsFromDb(queryAI) {
 export function startCron(queryAI) {
     // 初始化静态定义的 cron 任务
     addCron("sync-chatlogs", "*/5 * * * *", () => {
-        logger.info("CRON", "同步聊天记录到Mellisearch")
+        logger.debug("CRON", "同步聊天记录到Mellisearch")
         syncChatLogs()
     })
-
-    // 初始加载数据库的 cron 任务
-    loadCronsFromDb(queryAI)
-
-    // 添加自动重新加载的 cron 任务 (每天夜里3点更新)
-    addCron(
-        "reload-db-crons",
-        "0 3 * * *",
-        () => {
-            ;(function reloadUntilSuccess() {
-                loadCronsFromDb(queryAI).then((result) => {
-                    if (!result) {
-                        setTimeout(reloadUntilSuccess, 30000) // 30秒后再次尝试
-                    }
-                })
-            })()
-        },
-        false
-    )
+    // 每分钟检查一次数据库变更
+    addCron("check-db-changes", "*/1 * * * *", checkForChanges, false)
 
     logger.info("Cron 系统已启动")
 }

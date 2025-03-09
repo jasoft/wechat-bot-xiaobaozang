@@ -7,6 +7,7 @@ import { wxClient } from "./wxmessage.js"
 import logger from "./logger.js"
 import spec from "./swagger.json" assert { type: "json" }
 import { queryAI } from "../wcf/index.js"
+import { messageQueue } from "./queue.js"
 // 使用 Swagger UI 中间件来提供 API 文档
 
 export async function startApiServer() {
@@ -32,7 +33,6 @@ export async function startApiServer() {
 
         try {
             wxClient.sendTxtByName(message, recipient)
-
             ctx.body = createResponseBody("Message sent successfully", 200, recipient, message)
         } catch (error) {
             ctx.status = 400
@@ -43,10 +43,14 @@ export async function startApiServer() {
     // 实现一个发送微信的 API工具,返回人类友好的消息, 供各种 bot 调用
     router.post("/message/toolcall", (ctx) => {
         const { recipient, message } = ctx.request.body
-
         try {
-            wxClient.sendTxtByName(message, recipient)
-
+            messageQueue.enqueue({
+                id: "toolcall_" + Date.now(),
+                type: 1, // 1=文本, 3=图片, 34=语音
+                sender: process.env.BOT_ID,
+                content: message,
+                roomId: wxClient.getContactId(recipient),
+            })
             ctx.body = `微信消息"${message}"成功发送给"${recipient}"啦! `
         } catch (error) {
             ctx.body = `发送消息出错啦, 重新试一下吧`

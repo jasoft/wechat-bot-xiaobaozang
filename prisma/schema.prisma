@@ -39,5 +39,7 @@ model Reminder {
     id        Int      @id @default(autoincrement())
     cron      String
     command   String
+    botId     String   @default("wxid_lzn88besya2s12")
+    roomId    String   @default("filehelper")
     createdAt DateTime @default(now())
 }
