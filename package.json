@@ -5,10 +5,10 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
-        "start": "node ./index.js",
+        "start": "npm run babel-node ./index.js",
         "babel-node": "npx babel-node --presets=@babel/preset-env",
         "dev": "nodemon --delay 1  -w .env -w src -w jobs.json --ext js,json,env  --exec npm run babel-node ./index.js",
-        "test": "jest"
+        "test": "node -r dotenv/config --env-file=.env.test jest"
     },
     "author": "soj",
     "license": "ISC",

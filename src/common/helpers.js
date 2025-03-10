@@ -2,12 +2,18 @@ import axios from "axios"
 import fs from "fs"
 import logger from "./logger.js"
 import os from "os"
-import { assert } from "console"
+import path from "path"
 
 // 使用 axios 模块
 export async function downloadFile(url, filePath) {
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+    }
     const writer = fs.createWriteStream(filePath)
-    assert(writer, "Failed to create write stream")
+    writer.on("error", (err) => {
+        console.error("写入时出错:", err)
+    })
     try {
         const response = await axios({
             url,
