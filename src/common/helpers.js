@@ -2,11 +2,12 @@ import axios from "axios"
 import fs from "fs"
 import logger from "./logger.js"
 import os from "os"
+import { assert } from "console"
 
 // 使用 axios 模块
 export async function downloadFile(url, filePath) {
     const writer = fs.createWriteStream(filePath)
-
+    assert(writer, "Failed to create write stream")
     try {
         const response = await axios({
             url,

@@ -8,90 +8,107 @@ import logger from "./logger.js"
 import spec from "./swagger.json" assert { type: "json" }
 import { queryAI } from "../wcf/index.js"
 import { messageQueue } from "./queue.js"
-// 使用 Swagger UI 中间件来提供 API 文档
 
-export async function startApiServer() {
+// Helper functions
+export function createResponseBody(message, code, recipient, text) {
+    return { message, code, recipient, text }
+}
+
+// Route handlers
+export async function handleMessagePost(ctx) {
+    const { recipient, message } = ctx.request.body
+
+    if (!recipient || !message) {
+        ctx.status = 400
+        ctx.body = createResponseBody("Recipient and message are required.", 400, recipient, message)
+        return
+    }
+
+    try {
+        wxClient.sendTxtByName(message, recipient)
+        ctx.body = createResponseBody("Message sent successfully", 200, recipient, message)
+    } catch (error) {
+        ctx.status = 400
+        ctx.body = createResponseBody("Error sending message.", 400, null, error.message)
+    }
+}
+
+export async function handleToolCallPost(ctx) {
+    const { recipient, message } = ctx.request.body
+    try {
+        messageQueue.enqueue({
+            id: "toolcall_" + Date.now(),
+            type: 1, // 1=文本, 3=图片, 34=语音
+            sender: process.env.BOT_ID,
+            content: message,
+            roomId: wxClient.getContactId(recipient),
+        })
+        ctx.body = `微信消息"${message}"成功发送给"${recipient}"啦! `
+    } catch (error) {
+        ctx.body = `发送消息出错啦, 重新试一下吧`
+    }
+}
+
+export async function handleMessageGet(ctx) {
+    ctx.body = { code: 200, message: "一个发送微信的 api" }
+}
+
+export async function handleReminderCallback(ctx) {
+    logger.info("reminder callback", ctx.request.body)
+    const notifyEvents = ctx.request.body.reminders_notified
+    let promises = notifyEvents.map((notifyEvent) => {
+        return queryAI("reminder/callback", [{ role: "user", content: notifyEvent.title }])
+    })
+
+    try {
+        let results = await Promise.all(promises)
+        let responses = results.map((res) => res.response)
+        ctx.body = { code: 200, message: responses }
+        logger.info("reply from ai", responses)
+    } catch (error) {
+        logger.error("error", error)
+        ctx.status = 500
+        ctx.body = { code: 500, message: "Internal server error" }
+    }
+}
+
+// Create Koa app and router
+export function createApp() {
     const app = new Koa()
     const router = new Router()
+
+    // Middleware
     app.use(cors())
     app.use(bodyParser())
     app.use(router.routes())
-
     app.use(router.allowedMethods())
-    function createResponseBody(message, code, recipient, text) {
-        return { message, code, recipient, text }
-    }
 
-    router.post("/message", (ctx) => {
-        const { recipient, message } = ctx.request.body
+    // Routes
+    router.post("/message", handleMessagePost)
+    router.post("/message/toolcall", handleToolCallPost)
+    router.get("/message", handleMessageGet)
+    router.post("/reminder/callback", handleReminderCallback)
 
-        if (!recipient || !message) {
-            ctx.status = 400
-            ctx.body = createResponseBody("Recipient and message are required.", 400, recipient, message)
-            return
-        }
-
-        try {
-            wxClient.sendTxtByName(message, recipient)
-            ctx.body = createResponseBody("Message sent successfully", 200, recipient, message)
-        } catch (error) {
-            ctx.status = 400
-            ctx.body = createResponseBody("Error sending message.", 400, null, error.message)
-        }
-    })
-
-    // 实现一个发送微信的 API工具,返回人类友好的消息, 供各种 bot 调用
-    router.post("/message/toolcall", (ctx) => {
-        const { recipient, message } = ctx.request.body
-        try {
-            messageQueue.enqueue({
-                id: "toolcall_" + Date.now(),
-                type: 1, // 1=文本, 3=图片, 34=语音
-                sender: process.env.BOT_ID,
-                content: message,
-                roomId: wxClient.getContactId(recipient),
-            })
-            ctx.body = `微信消息"${message}"成功发送给"${recipient}"啦! `
-        } catch (error) {
-            ctx.body = `发送消息出错啦, 重新试一下吧`
-        }
-    })
-
-    router.get("/message", (ctx) => {
-        // 实现获取用户的逻辑
-        ctx.body = { code: 200, message: "一个发送微信的 api" }
-    })
-
-    // 收到 reminder-api 的提醒， 调用 bot 发送消息
-    router.post("/reminder/callback", async (ctx) => {
-        logger.info("reminder callback", ctx.request.body)
-        const notifyEvents = ctx.request.body.reminders_notified
-        let promises = notifyEvents.map((notifyEvent) => {
-            return queryAI("reminder/callback", [{ role: "user", content: notifyEvent.title }])
-        })
-
-        try {
-            let results = await Promise.all(promises)
-            let responses = results.map((res) => res.response)
-            ctx.body = { code: 200, message: responses }
-            logger.info("reply from ai", responses)
-        } catch (error) {
-            // handle error here
-            logger.error("error", error)
-        }
-    })
-    // 使用 Swagger UI 中间件来提供 API 文档
+    // Swagger UI
     app.use(
         koaSwagger({
-            routePrefix: "/swagger", // host at /swagger instead of default /docs
+            routePrefix: "/swagger",
             swaggerOptions: {
                 spec: spec,
             },
         })
     )
 
+    return app
+}
+
+// Start server
+export async function startApiServer() {
+    const app = createApp()
+
     app.listen(process.env.API_PORT, () => {
         logger.info(`API Server is running on port ${process.env.API_PORT}`)
     })
-    // 使用 Swagger UI 中间件来提供 API 文档
+
+    return app
 }

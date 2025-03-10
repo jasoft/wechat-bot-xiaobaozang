@@ -16,6 +16,30 @@ export let queryAI
 
 let off = () => {}
 
+/**
+ * 处理队列中的单个消息，包括重试逻辑
+ * @param {Object} item 队列中的消息项
+ * @param {Object} client 微信客户端实例
+ * @param {string} serviceType 服务类型
+ * @returns {Promise<void>}
+ */
+async function processQueueMessage(item, client, serviceType) {
+    try {
+        await processUserMessage(item.message, client, serviceType)
+    } catch (error) {
+        logger.error("Error processing message:", error)
+        if (item.retries < 3) {
+            const delaySeconds = Math.pow(2, item.retries) * 15
+            item.retries += 1
+            logger.info(`重试第${item.retries}次，延迟${delaySeconds}秒`)
+            messageQueue.enqueue(item.message, delaySeconds)
+        } else {
+            logger.error(`Message failed after 3 retries, moving to DLQ:`, item)
+            messageQueue.moveToDLQ(item)
+        }
+    }
+}
+
 async function startBot() {
     const client = wxClient
     const isLogin = client.isLogin()
@@ -49,20 +73,7 @@ async function startBot() {
                 continue
             }
 
-            try {
-                await processUserMessage(item.message, client, serviceType)
-            } catch (error) {
-                logger.error("Error processing message:", error)
-                if (item.retries < 3) {
-                    const delaySeconds = Math.pow(2, item.retries) * 15
-                    item.retries += 1
-                    logger.info(`重试第${item.retries}次，延迟${delaySeconds}秒`)
-                    messageQueue.enqueue(item.message, delaySeconds)
-                } else {
-                    logger.error(`Message failed after 3 retries, moving to DLQ:`, item)
-                    messageQueue.moveToDLQ(item)
-                }
-            }
+            await processQueueMessage(item, client, serviceType)
         }
         await new Promise((resolve) => setTimeout(resolve, 1000))
         // run summarize every 10 minutes

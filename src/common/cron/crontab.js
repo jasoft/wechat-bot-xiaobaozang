@@ -4,6 +4,7 @@ import rootLogger from "../logger.js"
 import { PrismaClient } from "@prisma/client"
 import { messageQueue } from "../queue.js"
 import crypto from "crypto"
+import { DEFAULT_WINDOW_METADATA_KEY } from "llamaindex"
 
 const logger = rootLogger.getLogger("CRON")
 
@@ -132,7 +133,7 @@ export async function loadCronsFromDb(queryAI) {
                         type: 9999, // 1=文本, 3=图片, 34=语音, 9999=系统指令
                         sender: task.botId,
                         content: task.command,
-                        roomId: task.roomId,
+                        roomId: task.botId, // 本质是模拟一个跟小宝藏的聊天
                     }
                     messageQueue.enqueue(message)
                     logger.info("已将定时任务消息加入队列", message)

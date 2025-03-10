@@ -48,7 +48,9 @@ function startClientWithRetry(retries = 3, delay = 5000) {
             logger.info("Wcferry client started at", process.env.WCF_HOST, process.env.WCF_PORT)
             return client
         } catch (error) {
-            logger.error(`Failed to start Wcferry client: ${error.message}. Retrying in ${delay / 1000} seconds...`)
+            logger.error(
+                `Failed to start Wcferry client[${process.env.WCF_HOST}:${process.env.WCF_PORT}]: ${error.message}. Retrying in ${delay / 1000} seconds...`
+            )
             if (i < retries - 1) {
                 setTimeout(() => {}, delay)
             } else {

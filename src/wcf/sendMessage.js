@@ -9,7 +9,6 @@ import { Message, Wcferry } from "@zippybee/wechatcore"
 import StateMachine from "javascript-state-machine"
 import { extractLastConversation } from "../common/conversation.js"
 import fs from "fs"
-import { wxClient } from "../common/wxmessage.js"
 
 const prisma = new PrismaClient()
 const mutedTopics = new Set()
@@ -284,7 +283,7 @@ class MessageHandler {
      * @param {string} context[].role - 消息发送者的角色（'user'、'assistant'或'summary'）
      * @param {string} context[].content - 消息内容
      * @param {string} [context[].alias] - 用户的别名/姓名（在群聊环境中使用）
-     * @returns {Array<Object>} 处理后的、可供发送的消息对象
+     * @returns {Promise Array<Object>} 有效载荷数组
      */
     async buildPayload(context) {
         if (this.msg.type == this.MSG_TYPE_SYSTEM) {

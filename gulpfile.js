@@ -1,6 +1,5 @@
 import gulp from "gulp"
 import watch from "gulp-watch"
-
 import path from "path"
 import { exec } from "child_process"
 import iconv from "iconv-lite"
@@ -8,7 +7,10 @@ import iconv from "iconv-lite"
 // 定义要监控的目录和排除的目录
 const localDir = "." // 修改为你需要监控的目录
 const remoteDir = "Q:\\wechat-bot-xiaobaozang"
-const excludeDirs = ["node_modules", "assets", ".git"]
+const excludeDirs = ["node_modules", "assets", ".git", "coverage", "dist", "build", "logs"]
+
+// 定义要监控的文件类型
+const includeFiles = ["**/*.js", "**/*.json", "**/*.jsx", "**/*.ts", "**/*.tsx", ".env", "package.json"]
 
 // 构建 rsync 选项
 const rsyncOptions = {
@@ -41,7 +43,8 @@ const syncFiles = debounce(() => {
             return
         }
 
-        const robocopyCmd = `robocopy ${localDir} ${remoteDir} /NFL /NDL /NJH /NJS /E /XD ${excludeDirs.join(" ")}`
+        const robocopyCmd = `robocopy ${localDir} ${remoteDir}  /E /XD ${excludeDirs.join(" ")}`
+        console.log("开始同步:", robocopyCmd)
 
         exec(robocopyCmd, { encoding: "buffer" }, (error, stdout, stderr) => {
             // 使用 GBK 解码输出
@@ -60,14 +63,37 @@ const syncFiles = debounce(() => {
     })
 }, 2000)
 
+// 清理资源的函数
+function cleanup() {
+    if (global.watchInstance) {
+        global.watchInstance.close()
+    }
+}
+
 // 监控文件变化并同步
 gulp.task("watch", () => {
-    watch(
-        [`${localDir}/**/*`, `${localDir}/.env`],
-        { ignored: excludeDirs.map((dir) => path.join(localDir, dir)), dot: true },
+    // 确保在进程退出时清理资源
+    process.on("SIGINT", cleanup)
+    process.on("SIGTERM", cleanup)
+
+    // 保存 watch 实例以便后续清理
+    global.watchInstance = watch(
+        includeFiles.map((pattern) => path.join(localDir, pattern)),
+        {
+            ignored: excludeDirs.map((dir) => path.join(localDir, dir)),
+            dot: true,
+            ignoreInitial: true,
+            awaitWriteFinish: {
+                stabilityThreshold: 1000,
+                pollInterval: 100,
+            },
+        },
         syncFiles
     )
 })
 
 // 默认任务
 gulp.task("default", gulp.series("watch"))
+
+// 导出清理函数供外部使用
+export { cleanup }
