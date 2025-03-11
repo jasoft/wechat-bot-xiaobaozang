@@ -1,6 +1,6 @@
 node_modules
-WechatEveryDay.memory-card.json
 .env
+.env.test
 test.js
 package-lock.json
 yarn.lock

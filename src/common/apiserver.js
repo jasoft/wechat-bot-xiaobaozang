@@ -4,11 +4,12 @@ import bodyParser from "koa-bodyparser"
 import { koaSwagger } from "koa2-swagger-ui"
 import cors from "koa2-cors"
 import { wxClient } from "./wxmessage.js"
-import logger from "./logger.js"
+import rootLogger from "./logger.js"
 import spec from "./swagger.json" assert { type: "json" }
 import { queryAI } from "../wcf/index.js"
 import { messageQueue } from "./queue.js"
 
+const logger = rootLogger.getLogger("API")
 // Helper functions
 export function createResponseBody(message, code, recipient, text) {
     return { message, code, recipient, text }
@@ -57,6 +58,7 @@ export async function handleReminderCallback(ctx) {
     logger.info("reminder callback", ctx.request.body)
     const notifyEvents = ctx.request.body.reminders_notified
     let promises = notifyEvents.map((notifyEvent) => {
+        logger.info("notifyEvent", notifyEvent)
         return queryAI("reminder/callback", [{ role: "user", content: notifyEvent.title }])
     })
 
