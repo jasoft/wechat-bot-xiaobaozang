@@ -1,12 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
     provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "mysql"
+    provider = "postgresql"
     url      = env("DATABASE_URL")
 }
 
@@ -22,17 +19,6 @@ model Message {
     type       String?
     summarized Boolean  @default(false)
     createdAt  DateTime @default(now())
-}
-
-// 针对不同的topic，可以有不同的角色
-model Character {
-    id          Int      @id @default(autoincrement())
-    name        String
-    alias       String
-    topicId     String   @unique
-    description String   @db.VarChar(4096)
-    muted       Boolean  @default(false)
-    createdAt   DateTime @default(now())
 }
 
 model Reminder {
