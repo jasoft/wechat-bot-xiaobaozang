@@ -7,8 +7,8 @@
     "scripts": {
         "start": "npm run babel-node ./index.js",
         "babel-node": "npx babel-node --presets=@babel/preset-env",
-        "dev": "nodemon --delay 1  -w .env -w src -w jobs.json --ext js,json,env  --exec npm run babel-node ./index.js",
-        "test": "node -r dotenv/config --env-file=.env.test jest",
+        "dev": "npm install && nodemon --delay 1  -w .env -w src -w jobs.json --ext js,json,env  --exec npm run babel-node ./index.js",
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "init-db": "npm run babel-node ./src/scripts/init-pocketbase.js"
     },
     "author": "soj",
