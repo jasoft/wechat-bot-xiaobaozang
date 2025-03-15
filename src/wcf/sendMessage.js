@@ -2,15 +2,13 @@
 import { aliasWhiteList, botName, contextLimit, keywords, roomWhiteList } from "../../config.js"
 import { getServe } from "./serve.js"
 import path from "path"
-import { PrismaClient } from "@prisma/client"
 import rootlogger from "../common/logger.js"
 import { colorize } from "json-colorizer"
 import { Message, Wcferry } from "@zippybee/wechatcore"
 import StateMachine from "javascript-state-machine"
 import { extractLastConversation } from "../common/conversation.js"
 import fs from "fs"
-
-const prisma = new PrismaClient()
+import db from "../common/db.js"
 const mutedTopics = new Set()
 const logger = rootlogger.getLogger("MessageHandler")
 
@@ -109,8 +107,6 @@ class MessageHandler {
             logger.error("sendMessage", e.message)
             console.error(e)
             throw e
-        } finally {
-            await prisma.$disconnect()
         }
     }
 
@@ -382,27 +378,22 @@ class MessageHandler {
         }
 
         logger.info("Saving message to database", colorize({ role, content, name, alias }))
-        await prisma.message.create({
-            data: {
-                content: content,
-                topicId: this.topicId,
-                roomName: this.roomName,
-                name: name,
-                alias: alias,
-                role: role,
-                isRoom: this.isRoom,
-                type: type,
-            },
+        await db.messages.create({
+            content: content,
+            topicId: this.topicId,
+            roomName: this.roomName,
+            name: name,
+            alias: alias,
+            role: role,
+            isRoom: this.isRoom,
+            type: type,
         })
         logger.info("Message saved to database")
     }
 
     async getSummaryByTopic(topicId) {
-        return prisma.message.findFirst({
-            where: {
-                topicId: topicId,
-                role: "summary",
-            },
+        return await db.messages.findFirst({
+            filter: `topicId = '${topicId}' && role = 'summary'`,
         })
     }
 
@@ -414,16 +405,13 @@ class MessageHandler {
      * @returns {Promise<Array>} 历史消息列表, 按时间顺序排列（从过去到现在）
      */
     async getHistoryMessages(topicId, nums) {
-        const recentMessages = await prisma.message.findMany({
-            where: {
-                topicId: topicId,
-            },
-            take: nums,
-            orderBy: {
-                createdAt: "desc",
-            },
+        const result = await db.messages.findMany({
+            filter: `topicId = '${topicId}'`,
+            sort: "-created",
+            perPage: nums,
         })
 
+        const recentMessages = result?.items || []
         const summary = await this.getSummaryByTopic(topicId)
         if (summary) {
             recentMessages.push(summary)
@@ -439,23 +427,16 @@ class MessageHandler {
      * @returns 无返回值
      */
     async updateVoiceMsgToText(chatId, convertedMessage) {
-        const lastMessage = await prisma.message.findFirst({
-            where: {
-                topicId: chatId,
-            },
-            orderBy: {
-                createdAt: "desc",
-            },
+        const result = await db.messages.findMany({
+            filter: `topicId = '${chatId}'`,
+            sort: "-created",
+            perPage: 1,
         })
 
+        const lastMessage = result?.items?.[0]
         if (lastMessage) {
-            await prisma.message.update({
-                where: {
-                    id: lastMessage.id,
-                },
-                data: {
-                    content: convertedMessage,
-                },
+            await db.messages.update(lastMessage.id, {
+                content: convertedMessage,
             })
         }
     }

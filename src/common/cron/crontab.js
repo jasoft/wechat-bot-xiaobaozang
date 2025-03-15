@@ -1,14 +1,12 @@
 import { CronJob } from "cron"
 import { syncChatLogs } from "./syncChatLogs.js"
 import rootLogger from "../logger.js"
-import { PrismaClient } from "@prisma/client"
+import db from "../db.js"
 import { messageQueue } from "../queue.js"
 import crypto from "crypto"
 import { DEFAULT_WINDOW_METADATA_KEY } from "llamaindex"
 
 const logger = rootLogger.getLogger("CRON")
-
-const prisma = new PrismaClient()
 
 // 用于存储所有活动的 cron 任务
 const activeCrons = new Map()
@@ -22,19 +20,10 @@ let lastChecksum = ""
 async function checkForChanges() {
     logger.debug("检查定时任务更新")
     try {
-        const tasks = await prisma.reminder.findMany({
-            orderBy: {
-                createdAt: "desc",
-            },
-            select: {
-                id: true,
-                cron: true,
-                command: true,
-                createdAt: true,
-                botId: true,
-                roomId: true,
-            },
+        const result = await db.reminders.findMany({
+            sort: "-created",
         })
+        const tasks = result?.items || []
 
         const currentChecksum = crypto.createHash("md5").update(JSON.stringify(tasks)).digest("hex")
 
@@ -118,7 +107,8 @@ export async function loadCronsFromDb(queryAI) {
         stopDbCrons()
 
         // 这里从数据库加载 cron 任务配置
-        const tasks = await prisma.reminder.findMany()
+        const result = await db.reminders.findMany()
+        const tasks = result?.items || []
 
         tasks.forEach((task) => {
             logger.info("CRON", "加载定时任务", task)
