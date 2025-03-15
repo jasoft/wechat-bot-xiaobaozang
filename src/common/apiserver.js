@@ -68,7 +68,8 @@ export async function handleReminderCallback(ctx) {
         ctx.body = { code: 200, message: responses }
         logger.info("reply from ai", responses)
     } catch (error) {
-        logger.error("error", error)
+        //返回错误代码, reminder-api.com服务会重发event, 可能会导致多次执行action。需要保证action是幂等的
+        logger.error("error", error.data)
         ctx.status = 500
         ctx.body = { code: 500, message: "Internal server error" }
     }
