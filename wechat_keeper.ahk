@@ -23,7 +23,7 @@ RestartWeChat() {
 IsWechatErrorOrMissing() {
 
     ; 检查微信窗口是否显示“微信已停止工作”或“微信已退出”
-    if WinExist("错误报告") {
+    if WinExist("错误报告") OR ( NOT ProcessExist("WeChat.exe")) {
         return true
     }
 
@@ -126,7 +126,6 @@ SendWebhookToWeWorkBot(message) {
 
 lastRestartTime := A_TickCount
 lastMessageTime := A_TickCount
-SendWebhookToWeWorkBot('小宝藏已于' . FormatTime(A_Now, 'yyyy-MM-dd HH:mm:ss') . '启动')
 loop {
     if IsWechatErrorOrMissing() {  ; 23 to 25 hours in milliseconds
         RestartWeChat()
