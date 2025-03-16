@@ -15,7 +15,6 @@ RestartWeChat() {
         Sleep 1000
     }
     WinActivate("微信")
-    Sleep 1000
     Send "{Enter}"
     Sleep 10000  ; 等待10秒，确保微信完全启动
 }
