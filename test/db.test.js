@@ -21,22 +21,26 @@ describe("Database Operations - Messages", () => {
     })
 
     test("should create a message with valid data", async () => {
-        try {
-            const message = await messageOperations.create(validMessageData)
-            expect(message).toBeDefined()
-            expect(message.id).toBeDefined()
-            expect(message.topicId).toBe(validMessageData.topicId)
-            expect(message.content).toBe(validMessageData.content)
-            createdMessageId = message.id
-        } catch (error) {
-            if (error.response?.data) {
-                console.error("Create message error details:", JSON.stringify(error.response.data, null, 2))
-            } else {
-                console.error("Create message error:", error)
-            }
-            throw error
-        }
+        const message = await messageOperations.create(validMessageData)
+        expect(message).toBeDefined()
+        expect(message.id).toBeDefined()
+        expect(message.topicId).toBe(validMessageData.topicId)
+        expect(message.content).toBe(validMessageData.content)
+        expect(typeof message.isRoom).toBe("boolean")
+        expect(typeof message.summarized).toBe("boolean")
+        createdMessageId = message.id
     }, 10000)
+
+    test("should handle boolean fields correctly", async () => {
+        const testData = {
+            ...validMessageData,
+            isRoom: true,
+            summarized: false,
+        }
+        const message = await messageOperations.create(testData)
+        expect(message.isRoom).toBe(true)
+        expect(message.summarized).toBe(false)
+    })
 
     test("should fail to create message with missing required fields", async () => {
         const invalidData = {
@@ -54,12 +58,40 @@ describe("Database Operations - Messages", () => {
             }
         })
 
-        test("should find created message", async () => {
+        test("should find created message by id", async () => {
             const filter = `id = "${createdMessageId}"`
             const message = await messageOperations.findFirst(filter)
             expect(message).toBeDefined()
             expect(message.id).toBe(createdMessageId)
             expect(message.content).toBe(validMessageData.content)
+        })
+
+        test("should find message by room name", async () => {
+            const filter = `roomName = "${validMessageData.roomName}"`
+            const message = await messageOperations.findFirst(filter)
+            expect(message).toBeDefined()
+            expect(message.roomName).toBe(validMessageData.roomName)
+        })
+
+        test("should find message by multiple conditions", async () => {
+            const filter = `isRoom = true && summarized = true && topicId = "${validMessageData.topicId}"`
+            const message = await messageOperations.findFirst(filter)
+            expect(message).toBeDefined()
+            expect(message.isRoom).toBe(true)
+            expect(message.summarized).toBe(true)
+            expect(message.topicId).toBe(validMessageData.topicId)
+        })
+
+        test("should not find message with non-existent id", async () => {
+            const filter = 'id = "non-existent-id"'
+            const message = await messageOperations.findFirst(filter)
+            expect(message).toBeNull()
+        })
+
+        test("should not find message with invalid room name", async () => {
+            const filter = 'roomName = "不存在的房间"'
+            const message = await messageOperations.findFirst(filter)
+            expect(message).toBeNull()
         })
 
         test("should update message", async () => {

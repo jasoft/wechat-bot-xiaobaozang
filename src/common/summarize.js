@@ -48,23 +48,37 @@ class Summarizer {
 
                 const responseText = await this.getSummary(contentAllText)
 
-                // 根据 topic保存到数据库, role 设置为 summary, content 为 responseText
-                const filterSummary = `topicId = '${topicId}' && role = 'summary'`
-                const existingSummaries = await db.messages.findMany({ filter: filterSummary })
-                for (const summary of existingSummaries?.items || []) {
-                    await db.messages.delete(summary.id)
-                }
+                try {
+                    // 先检查是否存在摘要
+                    const filterSummary = `topicId = '${topicId}' && role = 'summary'`
+                    const existingSummary = await db.messages.findFirst({ filter: filterSummary })
 
-                const summary = await db.messages.create({
-                    topicId,
-                    isRoom: chatContents[0].isRoom,
-                    role: "summary",
-                    content: responseText,
-                    name: "summary",
-                    roomName: chatContents[0].roomName,
-                    alias: "summary",
-                })
-                logger.info("总结已保存到数据库", summary)
+                    const summaryData = {
+                        topicId,
+                        isRoom: Boolean(chatContents[0]?.isRoom),
+                        role: "summary",
+                        content: responseText,
+                        name: "summary",
+                        roomName: chatContents[0]?.roomName || "",
+                        alias: "summary",
+                        type: "text",
+                        summarized: true,
+                    }
+
+                    let summary
+                    if (existingSummary) {
+                        // 更新现有摘要
+                        summary = await db.messages.update(existingSummary.id, summaryData)
+                        logger.info("总结已更新", summary)
+                    } else {
+                        // 创建新摘要
+                        summary = await db.messages.create(summaryData)
+                        logger.info("总结已创建", summary)
+                    }
+                } catch (error) {
+                    logger.error(`处理话题 ${topicId} 的总结时出错:`, error)
+                    throw error
+                }
             }
         } catch (error) {
             logger.error("Error summarizing content by topic ID:", error.stack)

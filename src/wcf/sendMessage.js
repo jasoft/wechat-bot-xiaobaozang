@@ -392,7 +392,7 @@ class MessageHandler {
     }
 
     async getSummaryByTopic(topicId) {
-        return await db.messages.findFirst(`topicId = '${topicId}' && role = 'summary'`)
+        return await db.messages.findFirst({ filter: `topicId = '${topicId}' && role = 'summary'` })
     }
 
     /**

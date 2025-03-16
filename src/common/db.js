@@ -31,17 +31,17 @@ const handleError = (error, operation) => {
 export const messageOperations = {
     async create(data) {
         try {
-            // 确保布尔值被转换为"true"或"false"字符串
+            // 确保布尔值被正确处理
             const processedData = {
                 topicId: data.topicId,
-                isRoom: data.isRoom ? true : false,
+                isRoom: Boolean(data.isRoom),
                 role: data.role,
                 roomName: data.roomName,
                 name: data.name,
                 alias: data.alias || "default",
                 content: data.content,
                 type: data.type,
-                summarized: data.summarized ? true : false,
+                summarized: Boolean(data.summarized),
                 created: new Date().toISOString(),
             }
 
@@ -49,7 +49,11 @@ export const messageOperations = {
 
             return await pb.collection("messages").create(processedData)
         } catch (error) {
-            handleError(error, "message creation")
+            console.error("Message creation error:", error)
+            if (error.response?.data) {
+                console.error("Validation errors:", JSON.stringify(error.response.data, null, 2))
+            }
+            throw error // 显式抛出错误，避免隐式返回 undefined
         }
     },
 
@@ -65,8 +69,9 @@ export const messageOperations = {
         }
     },
 
-    async findFirst(filter) {
+    async findFirst(query = {}) {
         try {
+            const { filter } = query
             const records = await pb.collection("messages").getList(1, 1, {
                 filter,
             })
@@ -80,12 +85,6 @@ export const messageOperations = {
         try {
             // 如果更新包含布尔字段，确保转换为"true"或"false"字符串
             const processedData = { ...data }
-            if ("isRoom" in processedData) {
-                processedData.isRoom = processedData.isRoom ? "true" : "false"
-            }
-            if ("summarized" in processedData) {
-                processedData.summarized = processedData.summarized ? "true" : "false"
-            }
 
             console.log("Updating message with data:", JSON.stringify(processedData, null, 2))
 
