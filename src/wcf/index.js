@@ -27,12 +27,12 @@ async function processQueueMessage(item, client, serviceType) {
     try {
         await processUserMessage(item.message, client, serviceType)
     } catch (error) {
-        logger.error("Error processing message:", error)
+        logger.error("Error processing message:", item, error)
         if (item.retries < 3) {
             const delaySeconds = Math.pow(2, item.retries) * 15
             item.retries += 1
             logger.info(`重试第${item.retries}次，延迟${delaySeconds}秒`)
-            messageQueue.enqueue(item.message, delaySeconds)
+            messageQueue.enqueue(item, delaySeconds)
         } else {
             logger.error(`Message failed after 3 retries, moving to DLQ:`, item)
             messageQueue.moveToDLQ(item)
@@ -48,7 +48,7 @@ async function startBot() {
     startApiServer()
     // Start receiving messages
     off = client.listening((msg) => {
-        logger.info("Received message:", msg)
+        logger.info("Received message, push to queue:", msg)
         messageQueue.enqueue(msg)
     })
 

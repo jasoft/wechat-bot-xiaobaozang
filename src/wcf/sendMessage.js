@@ -44,9 +44,9 @@ class MessageHandler {
         // 如果存在群聊，则获取群聊名称；如果未能获取，则设置为 null
         this.roomName = this.roomId ? bot.getContact(this.roomId)?.name || null : null
         // 从联系人信息中获取备注名，如无则为空字符串
-        this.remarkName = this.contact.remark || ""
+        this.remarkName = this.contact?.remark || ""
         // 获取联系人的名称，如果不存在则为空字符串
-        this.name = this.contact.name || ""
+        this.name = this.contact?.name || ""
         // 确定用户别名：优先使用备注名，其次使用名称，若都不存在则默认为 "未知用户"
         this.alias = this.remarkName || this.name || "未知用户"
 
