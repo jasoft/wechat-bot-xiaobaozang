@@ -30,9 +30,14 @@ async function processQueueMessage(item, client, serviceType) {
         logger.error("Error processing message:", item, error)
         if (item.retries < 3) {
             const delaySeconds = Math.pow(2, item.retries) * 15
-            item.retries += 1
-            logger.info(`重试第${item.retries}次，延迟${delaySeconds}秒`)
-            messageQueue.enqueue(item, delaySeconds)
+            logger.info(`重试第${item.retries + 1}次，延迟${delaySeconds}秒`)
+            messageQueue.enqueue(
+                {
+                    ...item.message,
+                    retries: item.retries + 1,
+                },
+                delaySeconds
+            )
         } else {
             logger.error(`Message failed after 3 retries, moving to DLQ:`, item)
             messageQueue.moveToDLQ(item)
