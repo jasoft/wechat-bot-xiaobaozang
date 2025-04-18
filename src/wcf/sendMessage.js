@@ -65,7 +65,7 @@ class MessageHandler {
         // 设置话题ID，为群聊则使用 roomId，否则使用 contactId
         this.topicId = this.roomId ? this.roomId : this.contactId
 
-        logger.info("Message", this)
+        logger.debug("Message", this)
     }
     getType(type_id) {
         switch (type_id) {

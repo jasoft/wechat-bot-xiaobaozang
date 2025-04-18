@@ -53,7 +53,7 @@ async function startBot() {
     startApiServer()
     // Start receiving messages
     off = client.listening((msg) => {
-        logger.info("Received message, push to queue:", msg)
+        logger.debug("Received message, push to queue:", msg)
         messageQueue.enqueue(msg)
     })
 
