@@ -4,10 +4,10 @@ export class MessageQueue {
         this.dlq = [] // Dead Letter Queue
     }
 
-    enqueue(message, delaySeconds = 0) {
+    enqueue(message, retries = 0, delaySeconds = 0) {
         const item = {
             message,
-            retries: message.retries || 0,
+            retries: retries,
             timestamp: Date.now(),
             processAfter: Date.now() + delaySeconds * 1000,
         }

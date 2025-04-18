@@ -91,23 +91,41 @@ class MessageHandler {
             this.bot.sendTxt(this.content, this.roomId)
             return
         }
-
         const normalizedMessage = await this.convertMessageToTextRepresentation()
-        await this.saveMessageToDatabase("user", normalizedMessage, this.name, this.alias, this.getType(this.msg.type))
-
+        const messageId = await this.saveMessageToDatabase(
+            "user",
+            normalizedMessage,
+            this.name,
+            this.alias,
+            this.getType(this.msg.type)
+        )
+        let sayText = ""
         try {
+            // 先把消息存入数据库,以备以后使用
+
             if (this.isRoom && this.roomId) {
                 logger.info("处理群消息")
-                await this.handleRoomMessage()
+                sayText = await this.handleRoomMessage()
             }
 
             if (!this.isRoom) {
                 logger.info("处理私聊消息")
-                await this.handleChat(false, this.contactId)
+                sayText = await this.handleChat(false, this.contactId)
             }
+            await this.saveMessageToDatabase("assistant", sayText, botName, botName, "文本")
         } catch (e) {
-            logger.error("sendMessage", e.message)
-            console.error(e)
+            logger.error("处理消息出错", e.message)
+            try {
+                logger.info("Deleting failed message from database", messageId)
+                await prisma.message.delete({
+                    where: {
+                        id: messageId,
+                    },
+                })
+            } catch (dbErr) {
+                logger.error("Failed to clean up error message from database", dbErr)
+                // Continue with the original error
+            }
             throw e
         } finally {
             await prisma.$disconnect()
@@ -147,7 +165,7 @@ class MessageHandler {
     /**
      * 处理群消息, 判断是否需要触发对话, 触发对话则发送消息 (只有在群聊中触发关键词或者在群聊中与机器人对话时才会触发)
      *
-     * @returns {Promise<void>} 无返回值
+     * @returns {Promise<string>} 无返回值
      */
     async handleRoomMessage() {
         const botStateMachine = await this.createMuteStateMachine()
@@ -205,7 +223,7 @@ class MessageHandler {
             this.isVoice
         ) {
             logger.info(`触发群消息回复, 发送消息到群聊"${this.roomName}"`)
-            await this.handleChat(true, this.roomId)
+            return await this.handleChat(true, this.roomId)
         }
     }
 
@@ -214,7 +232,7 @@ class MessageHandler {
      *
      * @param isRoom 是否是群聊
      * @param chatId 聊天id
-     * @returns 无返回值
+     * @returns {Promise<string>} 返回回复的消息内容
      */
     async handleChat(isRoom, chatId) {
         const messages = await this.prepareMessagesForPrompt(chatId, isRoom)
@@ -224,6 +242,8 @@ class MessageHandler {
         const response = await this.getReply(chatId, question, {
             name: this.alias,
         })
+
+        logger.info("获取到的回复", response)
 
         logger.debug(isRoom ? "room response" : "contact response", colorize(response))
         let sayText = response.response
@@ -237,9 +257,9 @@ class MessageHandler {
         if (response.type === "image") {
             this.bot.sendImage(Buffer.from(response.data, "base64"), chatId)
         } else {
-            await this.saveMessageToDatabase("assistant", sayText, botName, botName, "文本")
             if (this.msg.type !== this.MSG_TYPE_SYSTEM) this.bot.sendTxt(sayText, chatId)
         }
+        return sayText
     }
 
     /**
@@ -378,11 +398,11 @@ class MessageHandler {
     async saveMessageToDatabase(role, content, name, alias, type) {
         if (!content || content.startsWith("<")) {
             logger.warn("Ignoring message with HTML content or blank", content)
-            return
+            return null
         }
 
-        logger.info("Saving message to database", colorize({ role, content, name, alias }))
-        await prisma.message.create({
+        logger.debug("Saving message to database", colorize({ role, content, name, alias }))
+        const savedMessage = await prisma.message.create({
             data: {
                 content: content,
                 topicId: this.topicId,
@@ -394,7 +414,8 @@ class MessageHandler {
                 type: type,
             },
         })
-        logger.info("Message saved to database")
+        logger.info("Message saved to database with ID:", savedMessage.id)
+        return savedMessage.id
     }
 
     async getSummaryByTopic(topicId) {

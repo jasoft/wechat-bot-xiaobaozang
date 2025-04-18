@@ -25,21 +25,23 @@ let off = () => {}
  */
 async function processQueueMessage(item, client, serviceType) {
     try {
+        // Introduce a random exception for testing purposes
+        logger.info(`处理消息: ${colorize(item.message)}`)
+        if (item.message.content === "error" && item.retries == 0) {
+            // 20% chance of error
+            logger.warn("模拟随机失败以测试重试机制")
+            throw new Error("模拟随机错误以测试重试逻辑")
+        }
         await processUserMessage(item.message, client, serviceType)
     } catch (error) {
-        logger.error("Error processing message:", item, error)
+        logger.error("处理消息出错:", item, error)
         if (item.retries < 3) {
-            const delaySeconds = Math.pow(2, item.retries) * 15
+            const delaySeconds = Math.pow(2, item.retries) * 5
             logger.info(`重试第${item.retries + 1}次，延迟${delaySeconds}秒`)
-            messageQueue.enqueue(
-                {
-                    ...item.message,
-                    retries: item.retries + 1,
-                },
-                delaySeconds
-            )
+            item.retries += 1
+            messageQueue.enqueue(item.message, item.retries, delaySeconds)
         } else {
-            logger.error(`Message failed after 3 retries, moving to DLQ:`, item)
+            logger.error(`消息在3次重试后失败，移至死信队列:`, item)
             messageQueue.moveToDLQ(item)
         }
     }
