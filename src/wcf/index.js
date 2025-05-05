@@ -34,15 +34,17 @@ async function processQueueMessage(item, client, serviceType) {
         }
         await processUserMessage(item.message, client, serviceType)
     } catch (error) {
-        logger.error("处理消息出错:", item, error)
-        if (item.retries < 3) {
-            const delaySeconds = Math.pow(2, item.retries) * 5
-            logger.info(`重试第${item.retries + 1}次，延迟${delaySeconds}秒`)
-            item.retries += 1
-            messageQueue.enqueue(item.message, item.retries, delaySeconds)
-        } else {
-            logger.error(`消息在3次重试后失败，移至死信队列:`, item)
-            messageQueue.moveToDLQ(item)
+        logger.error("处理消息出错:", error)
+
+        const retryInfo = messageQueue.getRetryInfo(item)
+        logger.info(
+            `重试信息: 第${retryInfo.attempts}次尝试, 最大重试次数${retryInfo.maxRetries}, ` +
+                `下次延迟${retryInfo.nextDelay}秒, 总耗时${retryInfo.totalTime}ms`
+        )
+
+        const continueRetry = await messageQueue.handleFailure(item)
+        if (!continueRetry) {
+            logger.error(`消息在${retryInfo.maxRetries}次重试后失败，已移至死信队列:`, item)
         }
     }
 }
