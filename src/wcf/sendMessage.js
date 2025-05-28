@@ -114,7 +114,7 @@ class MessageHandler {
             }
             await this.saveMessageToDatabase("assistant", sayText, botName, botName, "文本")
         } catch (e) {
-            logger.error("处理消息出错", e.message)
+            logger.error("处理消息出错", e)
             try {
                 logger.info("Deleting failed message from database", messageId)
                 await prisma.message.delete({
@@ -236,6 +236,8 @@ class MessageHandler {
      */
     async handleChat(isRoom, chatId) {
         const messages = await this.prepareMessagesForPrompt(chatId, isRoom)
+        // 这里的消息可能会包括语音或者图片文件的路径，类似于 `[图片消息]{图片路径}` 或 `[语音消息]{语音路径}`
+        logger.debug("准备发送给 bot 的消息", colorize(messages))
         if (messages.length === 0) return
 
         const question = await this.buildPayload(messages)
@@ -248,8 +250,8 @@ class MessageHandler {
         logger.debug(isRoom ? "room response" : "contact response", colorize(response))
         let sayText = response.response
 
-        if (this.isVoice) {
-            await this.updateVoiceMsgToText(chatId, response.convertedMessage)
+        if (this.isVoice || this.isImage) {
+            await this.dbUpdateConvertedMsgToText(chatId, response.convertedMessage)
         }
 
         // 发送消息, 判断是否是图片消息
@@ -270,14 +272,13 @@ class MessageHandler {
         let chatHistory = await this.getHistoryMessages(chatId, contextLimit)
 
         if (this.isImage) {
-            chatHistory = [
-                {
-                    role: "user",
-                    alias: this.alias,
-                    content: await this.convertMessageToTextRepresentation(),
-                    createdAt: new Date(),
-                },
-            ]
+            chatHistory.push({
+                role: "user",
+                alias: this.alias,
+                content: await this.convertMessageToTextRepresentation(),
+                //content: `这是一张图片，你暂时无法查看图片内容, 但你可以回答关于这张图片的问题`,
+                createdAt: new Date(),
+            })
         } else if (this.isVoice) {
             chatHistory.push({
                 role: "user",
@@ -379,16 +380,19 @@ class MessageHandler {
             if (this.isVoice) {
                 logger.info("voice message", this.msg.id)
 
+                logger.info("下载语音消息", attachmentPath, this.msg.id, this.msg.extra)
                 const fileName = await this.bot.getAudioMsg(this.msg.id, attachmentPath, 10)
 
                 textRepresentation = `[语音消息]{${fileName}}`
             }
             if (this.isImage) {
-                const fileName = await this.bot.downloadImage(this.msg.id, attachmentPath, undefined, undefined, 10)
+                logger.info("下载图片", attachmentPath, this.msg.id, this.msg.extra)
+                const fileName = await this.bot.downloadImage(this.msg.id, attachmentPath, undefined, undefined, 5)
+
                 textRepresentation = `[图片消息]{${fileName}}`
             }
         } catch (error) {
-            logger.error("下载语音/图片出错", error)
+            logger.error("下载语音/图片出错", error, `filename=${fileName}`)
             textRepresentation = "[其他消息][错误]下载语音/图片出错"
         }
 
@@ -453,13 +457,13 @@ class MessageHandler {
     }
 
     /**
-     * 将语音消息转换为文本并更新到数据库中
+     * 将语音消息/图片消息等转换为文本并更新到数据库中
      *
      * @param chatId 聊天ID
      * @param convertedMessage 转换后的文本消息
      * @returns 无返回值
      */
-    async updateVoiceMsgToText(chatId, convertedMessage) {
+    async dbUpdateConvertedMsgToText(chatId, convertedMessage) {
         const lastMessage = await prisma.message.findFirst({
             where: {
                 topicId: chatId,

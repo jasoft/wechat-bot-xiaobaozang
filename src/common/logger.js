@@ -84,7 +84,7 @@ logger.methodFactory = function (methodName, logLevel, loggerName) {
 }
 
 logger.name = "botlogger"
-logger.setLevel(process.env.LOG_LEVEL || "info")
+logger.setLevel(process.env.LOG_LEVEL || "debug")
 logger.info("logger level set to", logger.getLevel())
 
 export default logger

@@ -26,17 +26,13 @@ export class OpenAIBot {
         // 如果需要解析媒体消息, 例如微信消息
         if (parseMedia) {
             // If the last parsedMessage is an image parsedMessage, call the image understanding API
-            if (lastUserMessage.content.includes("[图片消息]")) {
-                // 如果是图片直接返回识别结果,不参与对话
-                const response = await getImageRecognitionText(lastUserMessage)
-                result.convertedMessage = response
-                result.response = response
-            }
+            if (lastUserMessage.content.includes("[图片消息]") || lastUserMessage.content.includes("[语音消息]")) {
+                // 根据消息类型调用相应的识别接口
+                const response = lastUserMessage.content.includes("[图片消息]")
+                    ? await getImageRecognitionText(lastUserMessage)
+                    : await getVoiceRecognitionText(lastUserMessage)
 
-            // 如果最后一条消息是语音消息，调用语音理解接口
-            else if (lastUserMessage.content.includes("[语音消息]")) {
-                // 替换最后一条消息为语音识别结果
-                const response = await getVoiceRecognitionText(lastUserMessage)
+                // 替换最后一条消息为识别结果
                 const payload = [...payloadText]
                 payload.pop()
                 payload.push({ role: "user", content: response })

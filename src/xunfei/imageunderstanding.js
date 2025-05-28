@@ -1,170 +1,134 @@
-import WebSocket from "ws"
-import crypto from "crypto"
+/**
+ * Dify 图片理解功能
+ *
+ * 使用 Dify workflow API 上传图片并获取图片理解结果
+ *
+ * 重要配置说明：
+ * 1. API Key: app-Z5gaMIwM32TKbu0tOZTXhR45 (已在代码中配置)
+ * 2. 确保你的 Dify workflow 已正确配置图片输入节点
+ * 3. workflow 的输入参数名称需要与代码中的匹配
+ *
+ * 使用示例：
+ * ```javascript
+ * import { imageUnderstanding } from './src/xunfei/imageunderstanding.js'
+ *
+ * const result = await imageUnderstanding('/path/to/image.jpg', '请描述这张图片')
+ * console.log(result)
+ * ```
+ *
+ * 注意事项：
+ * - 支持的图片格式：JPG, PNG, GIF, WEBP
+ * - 图片大小限制：通常不超过 10MB
+ * - 确保图片文件路径正确且可访问
+ */
+
 import fs from "fs"
 import dotenv from "dotenv"
-import base64 from "base64-js"
 import sharp from "sharp"
 import logger from "../common/logger.js"
+import axios from "axios"
+import FormData from "form-data"
 
 const env = dotenv.config().parsed // 环境
-const appid = env.XUNFEI_APP_ID
-const apiSecret = env.XUNFEI_API_SECRET
-const apiKey = env.XUNFEI_API_KEY
 
-const imageUnderstandingUrl = "wss://spark-api.cn-huabei-1.xf-yun.com/v2.1/image" // 云端环境的服务地址
-
-class WsParam {
-	// 初始化
-	constructor(APPID, APIKey, APISecret, imageUnderstandingUrl) {
-		this.APPID = APPID
-		this.APIKey = APIKey
-		this.APISecret = APISecret
-		const url = new URL(imageUnderstandingUrl)
-		this.host = url.hostname
-		this.path = url.pathname
-		this.ImageUnderstandingUrl = imageUnderstandingUrl
-	}
-
-	// 生成url
-	createUrl() {
-		// 生成RFC1123格式的时间戳
-		const now = new Date()
-		const date = new Date(now.getTime()).toUTCString()
-
-		// 拼接字符串
-		let signatureOrigin = `host: ${this.host}\n`
-		signatureOrigin += `date: ${date}\n`
-		signatureOrigin += `GET ${this.path} HTTP/1.1`
-
-		// 进行hmac-sha256进行加密
-		const signatureSha = crypto.createHmac("sha256", this.APISecret).update(signatureOrigin).digest()
-		const signatureShaBase64 = base64.fromByteArray(signatureSha)
-
-		const authorizationOrigin = `api_key="${this.APIKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signatureShaBase64}"`
-		const authorization = base64.fromByteArray(Buffer.from(authorizationOrigin))
-
-		// 将请求的鉴权参数组合为对象
-		const params = { authorization, date, host: this.host }
-		// 拼接鉴权参数，生成url
-		const url = `${this.ImageUnderstandingUrl}?${new URLSearchParams(params).toString()}`
-		// 此处打印出建立连接时候的url,参考本demo的时候可取消上方打印的注释，比对相同参数时生成的url与自己代码生成的url是否一致
-		return url
-	}
-}
-
-// 收到websocket错误的处理
-const onError = (error) => {
-	logger.error("### error:", error)
-}
-
-// 收到websocket关闭的处理
-const onClose = () => {
-	console.log(" ")
-}
-
-// 收到websocket连接建立的处理
-const onOpen = (ws) => {
-	run(ws)
-}
-
-const run = (ws) => {
-	const data = JSON.stringify(genParams(ws.appid, ws.question))
-	ws.send(data)
-}
-
-const genParams = (appid, question) => {
-	/**
-	 * 通过appid和用户的提问来生成请参数
-	 */
-
-	const data = {
-		header: { app_id: appid },
-		parameter: {
-			chat: {
-				domain: "image",
-				temperature: 0.5,
-				top_k: 4,
-				max_tokens: 2028,
-				auditing: "default",
-			},
-		},
-		payload: { message: { text: question } },
-	}
-
-	return data
-}
-
-const getText = (role, content) => {
-	const jsonContent = { role: role, content: content }
-	return [jsonContent]
-}
+// Dify API 配置
+const DIFY_API_KEY = env.DIFY_IMAGE_DESCRIBER_KEY
+const DIFY_BASE_URL = env.DIFY_BASE_URL || "https://api.dify.ai" // 默认使用官方 API
 
 export async function imageUnderstanding(imagePath, question) {
-	// ...
-	async function resizeImageToBase64(inputPath, maxBase64SizeKB = 4096) {
-		let image = sharp(inputPath)
-		let metadata = await image.metadata()
+    try {
+        // 首先上传文件到 Dify
+        const fileId = await uploadFileToDify(imagePath)
+        logger.info("File uploaded successfully, file ID:", fileId)
 
-		let width = metadata.width
-		let height = metadata.height
+        // 然后使用 workflow API 处理图片理解
+        const result = await runDifyWorkflow(fileId, question)
 
-		while (true) {
-			// Resize the image
-			const buffer = await image.resize(width, height, { fit: "inside" }).toBuffer()
+        return result
+    } catch (error) {
+        logger.error("Image understanding error:", error)
+        throw error
+    }
+}
 
-			// Convert to base64
-			const base64Image = buffer.toString("base64")
-			const base64SizeKB = Buffer.byteLength(base64Image, "utf8") / 1024
+/**
+ * 上传文件到 Dify
+ * @param {string} imagePath - 图片文件路径
+ * @returns {string} 文件ID
+ */
+async function uploadFileToDify(imagePath) {
+    try {
+        // 检查文件是否存在
+        if (!fs.existsSync(imagePath)) {
+            throw new Error(`File not found: ${imagePath}`)
+        }
 
-			if (base64SizeKB <= maxBase64SizeKB) {
-				return base64Image
-			}
+        // 创建 FormData
+        const formData = new FormData()
+        formData.append("file", fs.createReadStream(imagePath))
+        formData.append("user", "apiuser")
 
-			// Reduce the width and height for the next iteration
-			width = Math.floor(width * 0.9)
-			height = Math.floor(height * 0.9)
-			logger.info(`Image too large, resizing image to ${width}x${height} (base64 size: ${base64SizeKB} KB)`)
-		}
-	}
+        const response = await axios.post(`${DIFY_BASE_URL}/v1/files/upload`, formData, {
+            headers: {
+                Authorization: `Bearer ${DIFY_API_KEY}`,
+                ...formData.getHeaders(),
+            },
+        })
 
-	const resizedImageBase64 = await resizeImageToBase64(imagePath)
+        logger.debug("File upload response:", response.data)
+        return response.data.id
+    } catch (error) {
+        logger.error("File upload error:", error.response?.data || error.message)
+        throw new Error(`Failed to upload file: ${error.response?.data?.message || error.message}`)
+    }
+}
 
-	// Convert the resized image buffer to base64
-	logger.debug("resizedSize(base64)", resizedImageBase64.length)
+/**
+ * 运行 Dify workflow 进行图片理解
+ * @param {string} fileId - 上传的文件ID
+ * @param {string} question - 用户问题
+ * @returns {string} AI 回复
+ */
+async function runDifyWorkflow(fileId, question) {
+    try {
+        // 使用正确的文件对象格式
+        const data = {
+            inputs: {
+                image: {
+                    type: "image",
+                    transfer_method: "local_file",
+                    upload_file_id: fileId,
+                },
+                query: question || "请描述这张图片的内容",
+            },
+            response_mode: "blocking",
+            user: "apiuser",
+        }
 
-	const text = [{ role: "user", content: resizedImageBase64, content_type: "image" }]
-	let result = ""
-	text.push({ role: "user", content: question })
+        logger.debug("Sending workflow request with data:", JSON.stringify(data, null, 2))
 
-	const wsParam = new WsParam(appid, apiKey, apiSecret, imageUnderstandingUrl)
-	const wsUrl = wsParam.createUrl()
-	const ws = new WebSocket(wsUrl, {
-		rejectUnauthorized: false,
-	})
+        const response = await axios.post(`${DIFY_BASE_URL}/v1/workflows/run`, data, {
+            headers: {
+                Authorization: `Bearer ${DIFY_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+        })
 
-	return new Promise((resolve, reject) => {
-		ws.on("message", (message) => {
-			const data = JSON.parse(message)
-			const code = data.header.code
-			if (code !== 0) {
-				reject(`请求错误: ${code}, ${data.header.message}`)
-				ws.close()
-			} else {
-				const choices = data.payload.choices
-				const status = choices.status
-				const content = choices.text[0].content
-				result += content
-				if (status === 2) {
-					resolve(result)
-					ws.close()
-				}
-			}
-		})
-		ws.on("error", onError)
-		ws.on("close", onClose)
-		ws.on("open", () => onOpen(ws))
+        logger.debug("Workflow response:", response.data)
 
-		ws.appid = appid
-		ws.question = text
-	})
+        // 从响应中提取结果
+        if (response.data.data && response.data.data.outputs) {
+            const outputs = response.data.data.outputs
+            logger.debug("Workflow outputs:", outputs)
+            // 尝试从不同可能的字段中获取结果
+            const result = outputs.image_describe
+            return result
+        }
+
+        return response.data.answer || response.data.result || "图片理解完成"
+    } catch (error) {
+        logger.error("Workflow execution error:", error.response?.data || error.message)
+
+        throw new Error(`Failed to run workflow: ${error.response?.data?.message || error.message}`)
+    }
 }
