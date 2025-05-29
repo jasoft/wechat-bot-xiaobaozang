@@ -72,7 +72,7 @@ export class DifyBot extends OpenAIBot {
 
             return res.data.answer
         } catch (error) {
-            logger.error("dify bot error: ", error.response.data)
+            logger.error("dify bot error: ", error.response.data?.error || error.message)
             throw error
         }
 

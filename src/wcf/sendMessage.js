@@ -401,7 +401,7 @@ class MessageHandler {
 
     async saveMessageToDatabase(role, content, name, alias, type) {
         if (!content || content.startsWith("<")) {
-            logger.warn("Ignoring message with HTML content or blank", content)
+            logger.warn("Ignoring message with HTML content or blank:", content)
             return null
         }
 
