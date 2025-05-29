@@ -8,7 +8,7 @@
         "start": "npm run babel-node ./index.js",
         "babel-node": "npx babel-node --presets=@babel/preset-env",
         "dev": "npm install && nodemon --delay 1  -w .env -w src -w jobs.json --ext js,json,env  --exec npm run babel-node ./index.js",
-        "test": "node -r dotenv/config --env-file=.env.test jest"
+        "test": "jest --config=jest.config.cjs --env-file=.env.test"
     },
     "author": "soj",
     "license": "ISC",

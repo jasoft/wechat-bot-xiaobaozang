@@ -10,8 +10,8 @@
             "database": "${workspaceFolder:nodejsclient}/prisma/dev.db"
         }
     ],
-    "jest.jestCommandLine": "npm test --",
     "jest.runMode": {
         "type": "watch"
-    }
+    },
+    "jest.jestCommandLine": "npm test --"
 }

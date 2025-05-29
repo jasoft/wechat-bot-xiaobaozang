@@ -66,6 +66,10 @@ export class DifyBot extends OpenAIBot {
             const res = await axios.post(url, data, { headers })
             logger.debug("dify bot returned: ", res.data)
 
+            if (!res.data.answer) {
+                throw new Error("Empty response from Dify API")
+            }
+
             return res.data.answer
         } catch (error) {
             logger.error("dify bot error: ", error.response.data)

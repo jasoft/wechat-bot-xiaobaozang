@@ -1,4 +1,4 @@
-export default {
+module.exports = {
     transform: {
         "^.+\\.js$": "babel-jest",
     },
@@ -8,4 +8,8 @@ export default {
         environment: "node",
     },
     setupFiles: ["<rootDir>/jest.setup.js"],
+    moduleFileExtensions: ["js"],
+    moduleNameMapper: {
+        "^(\\.{1,2}/.*)\\.js$": "$1",
+    },
 }
